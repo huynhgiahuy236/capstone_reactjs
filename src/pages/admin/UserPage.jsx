@@ -1,9 +1,11 @@
 import { useFormik } from 'formik'
 import { useMemo, useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import * as Yup from 'yup'
 import LoadingSpinner from '../../components/LoadingSpinner'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { useAddUser, useDeleteUser, useUpdateUser, useUsers } from '../../hooks/useUser'
+import { login, selectorUser } from '../../store/authSlice'
 
 const userSchema = Yup.object().shape({
   taiKhoan: Yup.string().required('Tài khoản không được để trống'),
@@ -25,11 +27,14 @@ const initialUserValues = {
 }
 
 const UserPage = () => {
+  const dispatch = useDispatch()
+  const currentUser = useSelector(selectorUser)
   const [currentPage, setCurrentPage] = useState(1)
   const [searchTerm, setSearchTerm] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
   const PAGE_SIZE = 10
+  const isAdmin = currentUser?.maLoaiNguoiDung === 'QuanTri'
 
   const { data, isLoading } = useUsers(currentPage, PAGE_SIZE)
   const addUser = useAddUser()
@@ -66,11 +71,32 @@ const UserPage = () => {
     initialValues: initialUserValues,
     validationSchema: userSchema,
     onSubmit: async (values, { resetForm }) => {
+      if (!isAdmin) {
+        alert('Ban khong co quyen quan ly nguoi dung')
+        return
+      }
+
+      const userData = {
+        ...values,
+        maNhom: values.maNhom || 'GP01'
+      }
+
       try {
         if (editingUser) {
-          await updateUser.mutateAsync(values)
+          await updateUser.mutateAsync(userData)
+
+          if (currentUser?.taiKhoan === userData.taiKhoan) {
+            const safeUserData = { ...userData }
+            delete safeUserData.matKhau
+
+            dispatch(login({
+              ...currentUser,
+              ...safeUserData,
+              soDT: userData.soDt
+            }))
+          }
         } else {
-          await addUser.mutateAsync(values)
+          await addUser.mutateAsync(userData)
         }
 
         resetForm()
@@ -84,12 +110,22 @@ const UserPage = () => {
   })
 
   const openAddModal = () => {
+    if (!isAdmin) {
+      alert('Ban khong co quyen quan ly nguoi dung')
+      return
+    }
+
     setEditingUser(null)
     formik.setValues(initialUserValues)
     setIsModalOpen(true)
   }
 
   const openEditModal = (user) => {
+    if (!isAdmin) {
+      alert('Ban khong co quyen quan ly nguoi dung')
+      return
+    }
+
     setEditingUser(user)
     formik.setValues({
       taiKhoan: user.taiKhoan || '',
@@ -110,6 +146,11 @@ const UserPage = () => {
   }
 
   const handleDeleteUser = async (taiKhoan) => {
+    if (!isAdmin) {
+      alert('Ban khong co quyen quan ly nguoi dung')
+      return
+    }
+
     const isConfirmed = window.confirm(`Bạn có chắc muốn xóa user ${taiKhoan}?`)
 
     if (!isConfirmed) {

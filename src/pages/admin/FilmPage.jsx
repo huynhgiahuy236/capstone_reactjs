@@ -1,9 +1,11 @@
 import { useFormik } from 'formik'
 import { useMemo, useState } from 'react'
+import { useSelector } from 'react-redux'
 import * as Yup from 'yup'
 import LoadingSpinner from '../../components/LoadingSpinner'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { useAddMovie, useDeleteMovie, useMovieListPhanTrang, useUpdateMovie } from '../../hooks/useMovies'
+import { selectorUser } from '../../store/authSlice'
 
 const movieSchema = Yup.object().shape({
   tenPhim: Yup.string().required('Tên phim không được để trống'),
@@ -24,6 +26,7 @@ const initialMovieValues = {
   hot: false,
   dangChieu: true,
   sapChieu: false,
+  hinhAnh: '',
   hinhAnhFile: null,
   maNhom: 'GP01'
 }
@@ -87,11 +90,13 @@ const buildMovieFormData = (values, isEdit) => {
 }
 
 const FilmPage = () => {
+  const currentUser = useSelector(selectorUser)
   const [searchTerm, setSearchTerm] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingMovie, setEditingMovie] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const PAGE_SIZE = 10
+  const isAdmin = currentUser?.maLoaiNguoiDung === 'QuanTri'
 
   const { data, isLoading, isError, error } = useMovieListPhanTrang(currentPage, PAGE_SIZE)
   const addMovie = useAddMovie()
@@ -124,9 +129,14 @@ const FilmPage = () => {
     initialValues: initialMovieValues,
     validationSchema: movieSchema,
     onSubmit: async (values, { resetForm }) => {
+      if (!isAdmin) {
+        alert('Ban khong co quyen quan ly phim')
+        return
+      }
+
       try {
         if (editingMovie && !values.hinhAnhFile) {
-          alert('API cập nhật phim đang dùng dạng upload, bạn cần chọn lại hình ảnh trước khi cập nhật.')
+          alert('API cap nhat phim yeu cau file anh. Vui long chon file anh khi cap nhat phim.')
           return
         }
 
@@ -143,18 +153,28 @@ const FilmPage = () => {
         setIsModalOpen(false)
       } catch (error) {
         console.log(error)
-        alert(error.response?.data?.content || 'Lưu phim thất bại')
+        alert(error.response?.data?.content || error.message || 'Lưu phim thất bại')
       }
     }
   })
 
   const openAddModal = () => {
+    if (!isAdmin) {
+      alert('Ban khong co quyen quan ly phim')
+      return
+    }
+
     setEditingMovie(null)
     formik.setValues(initialMovieValues)
     setIsModalOpen(true)
   }
 
   const openEditModal = (movie) => {
+    if (!isAdmin) {
+      alert('Ban khong co quyen quan ly phim')
+      return
+    }
+
     setEditingMovie(movie)
     formik.setValues({
       maPhim: movie.maPhim || '',
@@ -167,6 +187,7 @@ const FilmPage = () => {
       hot: !!movie.hot,
       dangChieu: !!movie.dangChieu,
       sapChieu: !!movie.sapChieu,
+      hinhAnh: movie.hinhAnh || '',
       hinhAnhFile: null,
       maNhom: movie.maNhom || 'GP01'
     })
@@ -180,6 +201,11 @@ const FilmPage = () => {
   }
 
   const handleDeleteMovie = async (maPhim, tenPhim) => {
+    if (!isAdmin) {
+      alert('Ban khong co quyen quan ly phim')
+      return
+    }
+
     const isConfirmed = window.confirm(`Bạn có chắc muốn xóa phim ${tenPhim}?`)
 
     if (!isConfirmed) {

@@ -11,7 +11,7 @@ export const userApi = {
         return axiosInstance.post('/QuanLyNguoiDung/ThemNguoiDung', userData)
     },
     updateUser: (userData) => {
-        return axiosInstance.put('/QuanLyNguoiDung/CapNhatThongTinNguoiDung', userData)
+        return axiosInstance.post('/QuanLyNguoiDung/CapNhatThongTinNguoiDung', userData)
     },
     deleteUser: (taiKhoan) => {
         return axiosInstance.delete(`/QuanLyNguoiDung/XoaNguoiDung?TaiKhoan=${taiKhoan}`)
