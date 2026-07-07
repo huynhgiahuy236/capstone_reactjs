@@ -20,9 +20,23 @@ const MovieCard = ({ movie }) => {
       <div className="p-4">
         <h3 className="text-white font-semibold text-lg mb-1 truncate">{movie.tenPhim}</h3>
         <p className="text-gray-400 text-sm mb-3">{movie.ngayKhoiChieu}</p>
-        <Link to={`/movie/${movie.maPhim}`} className="block text-center bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium py-2 rounded-lg transition-colors">
-          Xem chi tiết
-        </Link>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Link
+            to={`/movie/${movie.maPhim}`}
+            className={`${movie.dangChieu ? '' : 'sm:col-span-2'} text-center bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium py-2 rounded-lg transition-colors`}
+          >
+            Xem chi tiết
+          </Link>
+
+          {movie.dangChieu && (
+            <Link
+              to={`/booking/${movie.maPhim}`}
+              className="text-center bg-green-500 hover:bg-green-400 text-white font-medium py-2 rounded-lg transition-colors"
+            >
+              Đặt vé
+            </Link>
+          )}
+        </div>
       </div>
     </div>
   )
