@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
+import { useMemo } from 'react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { useProfile } from '../hooks/useUser'
 import { selectorIsLoggedIn } from '../store/authSlice'
@@ -21,6 +22,13 @@ const formatDateTime = (dateValue) => {
 
 const formatMoney = (money) => Number(money || 0).toLocaleString('vi-VN')
 
+const getBookingPrice = (booking) => {
+    const seats = booking.danhSachGhe || []
+    const seatTotalPrice = seats.reduce((total, seat) => total + (seat.giaVe || 0), 0)
+
+    return seatTotalPrice || (booking.giaVe || 0) * seats.length
+}
+
 const getCinemaInfo = (booking) => {
     const firstSeat = booking.danhSachGhe?.[0]
 
@@ -31,11 +39,135 @@ const getCinemaInfo = (booking) => {
     }
 }
 
+const groupBookingsByMovie = (bookings) => {
+    const groupMap = new Map()
+
+    bookings.forEach((booking) => {
+        const movieName = booking.tenPhim || 'Phim chưa có tên'
+
+        if (!groupMap.has(movieName)) {
+            groupMap.set(movieName, {
+                tenPhim: movieName,
+                hinhAnh: booking.hinhAnh,
+                bookings: []
+            })
+        }
+
+        groupMap.get(movieName).bookings.push(booking)
+    })
+
+    return Array.from(groupMap.values())
+}
+
+const BookingHistoryItem = ({ booking }) => {
+    const cinemaInfo = getCinemaInfo(booking)
+    const seats = booking.danhSachGhe || []
+    const totalPrice = getBookingPrice(booking)
+
+    return (
+        <article className="border border-gray-700 bg-gray-950/80 rounded-xl p-5 hover:border-yellow-400/50 transition-colors">
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
+                <div>
+                    <p className="text-gray-400 text-base">
+                        Mã vé: <span className="text-yellow-400 font-black">#{booking.maVe}</span>
+                        {booking.maPhim && (
+                            <>
+                                <span className="text-gray-600"> · </span>
+                                Mã phim: <span className="text-yellow-400 font-black">#{booking.maPhim}</span>
+                            </>
+                        )}
+                    </p>
+                </div>
+                <span className="text-yellow-400 font-black text-base whitespace-nowrap">
+                    {formatMoney(totalPrice)} VND
+                </span>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 text-sm mb-5">
+                <div className="bg-gray-800/80 rounded-lg px-4 py-3">
+                    <p className="text-gray-500 text-xs mb-1">Ngày đặt</p>
+                    <p className="text-gray-100 font-semibold">{formatDateTime(booking.ngayDat)}</p>
+                </div>
+                <div className="bg-gray-800/80 rounded-lg px-4 py-3">
+                    <p className="text-gray-500 text-xs mb-1">Thời lượng</p>
+                    <p className="text-gray-100 font-semibold">{booking.thoiLuongPhim || 0} phút</p>
+                </div>
+                <div className="bg-gray-800/80 rounded-lg px-4 py-3">
+                    <p className="text-gray-500 text-xs mb-1">Số ghế</p>
+                    <p className="text-gray-100 font-semibold">{seats.length} ghế</p>
+                </div>
+            </div>
+
+            <div>
+                <p className="text-gray-400 text-sm mb-2">
+                    {cinemaInfo.tenHeThongRap} - {cinemaInfo.tenCumRap} - {cinemaInfo.tenRap}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                    {seats.map((seat) => (
+                        <span key={seat.maGhe} className="bg-yellow-400/10 border border-yellow-400/40 text-yellow-400 text-xs font-bold px-2.5 py-1 rounded">
+                            Ghế {seat.tenGhe}
+                        </span>
+                    ))}
+                </div>
+            </div>
+        </article>
+    )
+}
+
+const MovieBookingGroup = ({ group }) => {
+    const firstBooking = group.bookings[0]
+
+    return (
+        <article className="relative overflow-hidden rounded-2xl border border-gray-800 bg-gray-900">
+            <div
+                className="absolute left-0 top-0 h-full w-full md:w-72 bg-cover bg-center opacity-30"
+                style={{ backgroundImage: `url("${group.hinhAnh}")` }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-gray-950/55 via-gray-950/90 to-gray-950" />
+            <div className="absolute inset-0 bg-gray-950/45" />
+
+            <div className="relative p-5">
+                <div className="flex flex-col md:flex-row gap-5">
+                    <img
+                        src={group.hinhAnh}
+                        alt={group.tenPhim}
+                        className="w-28 h-40 md:w-32 md:h-44 object-cover rounded-xl flex-shrink-0 bg-gray-800 shadow-xl shadow-black/30"
+                    />
+
+                    <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
+                            <div>
+                                <h3 className="text-white font-black text-2xl leading-tight">{group.tenPhim}</h3>
+                                <p className="text-gray-400 text-sm mt-2">
+                                    {group.bookings.length} lần đặt
+                                    {firstBooking?.maPhim && (
+                                        <>
+                                            <span className="text-gray-600"> · </span>
+                                            Mã phim: <span className="text-yellow-400 font-extrabold">#{firstBooking.maPhim}</span>
+                                        </>
+                                    )}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            {group.bookings.map((booking) => (
+                                <BookingHistoryItem key={booking.maVe} booking={booking} />
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </article>
+    )
+}
+
 const ProfilePage = () => {
     const isLoggedIn = useSelector(selectorIsLoggedIn)
     const { data: profile, isLoading, isError, error } = useProfile(isLoggedIn)
     const avatar = profile?.hoTen?.charAt(0)?.toUpperCase() || 'U'
-    const bookingHistory = profile?.thongTinDatVe || []
+    const bookingHistory = useMemo(() => profile?.thongTinDatVe || [], [profile?.thongTinDatVe])
+    const bookingGroups = useMemo(() => groupBookingsByMovie(bookingHistory), [bookingHistory])
 
     return (
         <div className="min-h-screen bg-gray-950 text-white">
@@ -96,7 +228,7 @@ const ProfilePage = () => {
                         <div>
                             <h2 className="text-2xl font-bold">Lịch sử đặt vé</h2>
                             <p className="text-gray-500 text-sm mt-1">
-                                {bookingHistory.length} lần đặt vé
+                                {bookingHistory.length} lần đặt vé · {bookingGroups.length} phim
                             </p>
                         </div>
                     </div>
@@ -111,64 +243,10 @@ const ProfilePage = () => {
                         </div>
                     )}
 
-                    <div className="space-y-4">
-                        {bookingHistory.map((booking) => {
-                            const cinemaInfo = getCinemaInfo(booking)
-                            const seats = booking.danhSachGhe || []
-                            const seatTotalPrice = seats.reduce((total, seat) => total + (seat.giaVe || 0), 0)
-                            const totalPrice = seatTotalPrice || (booking.giaVe || 0) * seats.length
-
-                            return (
-                                <article key={booking.maVe} className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden hover:border-yellow-400/30 transition-colors">
-                                    <div className="flex flex-col md:flex-row gap-4 p-4">
-                                        <img
-                                            src={booking.hinhAnh}
-                                            alt={booking.tenPhim}
-                                            className="w-24 h-32 md:w-24 md:h-36 object-cover rounded-xl flex-shrink-0 bg-gray-800"
-                                        />
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
-                                                <div>
-                                                    <h3 className="text-white font-bold text-xl leading-tight">{booking.tenPhim}</h3>
-                                                    <p className="text-gray-500 text-sm mt-1">Mã vé: #{booking.maVe}</p>
-                                                </div>
-                                                <span className="text-yellow-400 font-bold text-sm whitespace-nowrap">
-                                                    {formatMoney(totalPrice)} VND
-                                                </span>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 text-sm mb-4">
-                                                <div className="bg-gray-800/70 rounded-lg px-3 py-2">
-                                                    <p className="text-gray-500 text-xs mb-1">Ngày đặt</p>
-                                                    <p className="text-gray-200">{formatDateTime(booking.ngayDat)}</p>
-                                                </div>
-                                                <div className="bg-gray-800/70 rounded-lg px-3 py-2">
-                                                    <p className="text-gray-500 text-xs mb-1">Thời lượng</p>
-                                                    <p className="text-gray-200">{booking.thoiLuongPhim || 0} phút</p>
-                                                </div>
-                                                <div className="bg-gray-800/70 rounded-lg px-3 py-2">
-                                                    <p className="text-gray-500 text-xs mb-1">Số ghế</p>
-                                                    <p className="text-gray-200">{seats.length} ghế</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="mb-3">
-                                                <p className="text-gray-500 text-xs mb-1.5">
-                                                    {cinemaInfo.tenHeThongRap} - {cinemaInfo.tenCumRap} - {cinemaInfo.tenRap}
-                                                </p>
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {seats.map((seat) => (
-                                                        <span key={seat.maGhe} className="bg-yellow-400/10 border border-yellow-400/30 text-yellow-400 text-xs font-medium px-2 py-0.5 rounded">
-                                                            Ghế {seat.tenGhe}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </article>
-                            )
-                        })}
+                    <div className="space-y-5">
+                        {bookingGroups.map((group) => (
+                            <MovieBookingGroup key={group.tenPhim} group={group} />
+                        ))}
                     </div>
                 </section>
             </div>

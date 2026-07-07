@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { useSelector } from 'react-redux'
 import * as Yup from 'yup'
 import LoadingSpinner from '../../components/LoadingSpinner'
+import { useAdminFeedback } from '../../hooks/useAdminFeedback'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { useAddMovie, useDeleteMovie, useMovieList, useMovieListPhanTrang, useUpdateMovie } from '../../hooks/useMovies'
 import { selectorUser } from '../../store/authSlice'
@@ -124,6 +125,7 @@ const FilmPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingMovie, setEditingMovie] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
+  const { notify, confirm } = useAdminFeedback()
   const PAGE_SIZE = 10
   const isAdmin = currentUser?.maLoaiNguoiDung === 'QuanTri'
 
@@ -170,7 +172,7 @@ const FilmPage = () => {
     validationSchema: movieSchema,
     onSubmit: async (values, { resetForm }) => {
       if (!isAdmin) {
-        alert('Ban khong co quyen quan ly phim')
+        notify({ type: 'error', title: 'Không có quyền', message: 'Bạn không có quyền quản lý phim' })
         return
       }
 
@@ -186,16 +188,17 @@ const FilmPage = () => {
         resetForm()
         setEditingMovie(null)
         setIsModalOpen(false)
+        notify({ type: 'success', title: editingMovie ? 'Cập nhật thành công' : 'Thêm phim thành công', message: values.tenPhim })
       } catch (error) {
         console.log(error)
-        alert(error.response?.data?.content || error.message || 'Lưu phim thất bại')
+        notify({ type: 'error', title: 'Lưu phim thất bại', message: error.response?.data?.content || error.message || 'Lưu phim thất bại' })
       }
     }
   })
 
   const openAddModal = () => {
     if (!isAdmin) {
-      alert('Ban khong co quyen quan ly phim')
+      notify({ type: 'error', title: 'Không có quyền', message: 'Bạn không có quyền quản lý phim' })
       return
     }
 
@@ -206,7 +209,7 @@ const FilmPage = () => {
 
   const openEditModal = (movie) => {
     if (!isAdmin) {
-      alert('Ban khong co quyen quan ly phim')
+      notify({ type: 'error', title: 'Không có quyền', message: 'Bạn không có quyền quản lý phim' })
       return
     }
 
@@ -237,11 +240,17 @@ const FilmPage = () => {
 
   const handleDeleteMovie = async (maPhim, tenPhim) => {
     if (!isAdmin) {
-      alert('Ban khong co quyen quan ly phim')
+      notify({ type: 'error', title: 'Không có quyền', message: 'Bạn không có quyền quản lý phim' })
       return
     }
 
-    const isConfirmed = window.confirm(`Bạn có chắc muốn xóa phim ${tenPhim}?`)
+    const isConfirmed = await confirm({
+      title: 'Xóa phim',
+      message: `Bạn có chắc muốn xóa phim ${tenPhim}?`,
+      confirmText: 'Xóa phim',
+      cancelText: 'Hủy',
+      tone: 'danger',
+    })
 
     if (!isConfirmed) {
       return
@@ -249,9 +258,10 @@ const FilmPage = () => {
 
     try {
       await deleteMovie.mutateAsync(maPhim)
+      notify({ type: 'success', title: 'Xóa phim thành công', message: tenPhim })
     } catch (error) {
       console.log(error)
-      alert(error.response?.data?.content || 'Xóa phim thất bại')
+      notify({ type: 'error', title: 'Xóa phim thất bại', message: error.response?.data?.content || 'Xóa phim thất bại' })
     }
   }
 
@@ -265,15 +275,16 @@ const FilmPage = () => {
         )
       }
 
-      <div className="flex items-center justify-between mb-6 gap-4">
-        <div>
+      <div className="flex flex-col mb-6 gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="min-w-0">
           <h2 className="text-white text-2xl font-bold">Danh sách phim</h2>
           <p className="text-gray-400 text-sm mt-1">
             Trang <span className="text-yellow-400 font-medium">{currentPage}</span> / {totalPages} - Hiển thị <span className="text-yellow-400 font-medium">{movies.length}</span> / Tổng <span className="text-yellow-400 font-medium">{totalCount}</span> phim
           </p>
         </div>
 
-        <div className="relative w-80">
+        <div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
+        <div className="relative w-full sm:w-80">
           <input
             type="text"
             value={searchTerm}
@@ -295,10 +306,11 @@ const FilmPage = () => {
 
         <button
           onClick={openAddModal}
-          className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+          className="cursor-pointer bg-yellow-400 hover:bg-yellow-500 text-gray-900 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
         >
           Thêm phim
         </button>
+        </div>
       </div>
 
       {
@@ -377,13 +389,13 @@ const FilmPage = () => {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => openEditModal(movie)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                          className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
                         >
                           Sửa
                         </button>
                         <button
                           onClick={() => handleDeleteMovie(movie.maPhim, movie.tenPhim)}
-                          className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                          className="cursor-pointer bg-red-600 hover:bg-red-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
                         >
                           Xóa
                         </button>
@@ -405,7 +417,7 @@ const FilmPage = () => {
         }
       </div>
 
-      <div className="flex items-center justify-center gap-2 mt-6">
+      <div className="flex flex-wrap items-center justify-center gap-2 mt-6">
         <button
           onClick={() => setCurrentPage(page => page - 1)}
           disabled={currentPage === 1}
@@ -438,8 +450,14 @@ const FilmPage = () => {
 
       {
         isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-            <div className="bg-gray-900 rounded-2xl border border-gray-800 w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+            onClick={closeModal}
+          >
+            <div
+              className="bg-gray-900 rounded-2xl border border-gray-800 w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
+              onClick={(event) => event.stopPropagation()}
+            >
               <div className="flex items-center justify-between px-6 py-5 border-b border-gray-800">
                 <h3 className="text-white text-lg font-bold">
                   {editingMovie ? 'Cập nhật phim' : 'Thêm phim mới'}
@@ -453,7 +471,7 @@ const FilmPage = () => {
               </div>
 
               <form onSubmit={formik.handleSubmit} className="px-6 py-5 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-gray-400 text-xs font-medium mb-1.5">Tên phim</label>
                     <input
@@ -503,7 +521,7 @@ const FilmPage = () => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <div>
                     <label className="block text-gray-400 text-xs font-medium mb-1.5">Ngày khởi chiếu</label>
                     <input
@@ -578,7 +596,7 @@ const FilmPage = () => {
                   </label>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-2">
+                <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
                   <button
                     type="button"
                     onClick={closeModal}

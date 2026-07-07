@@ -10,6 +10,7 @@ import {
   useLichChieuPhim,
 } from "../../hooks/useCinema";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import { useAdminFeedback } from "../../hooks/useAdminFeedback";
 import { useMovieList } from "../../hooks/useMovies";
 
 const showtimeSchema = Yup.object().shape({
@@ -110,6 +111,7 @@ const ShowtimePage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingShowtime, setEditingShowtime] = useState(null);
   const [selectedCluster, setSelectedCluster] = useState(null);
+  const { notify } = useAdminFeedback();
 
   const {
     data: movies,
@@ -133,28 +135,67 @@ const ShowtimePage = () => {
     validationSchema: showtimeSchema,
     onSubmit: async (values, { resetForm }) => {
       try {
+        const selectedCinemaCluster = cumRap?.find(
+          (item) => item.maCumRap === values.maCumRap,
+        );
+        const selectedCinema = selectedCinemaCluster?.danhSachRap?.find(
+          (rap) => rap.maRap?.toString() === values.maRap?.toString(),
+        );
+
+        if (!selectedCinemaCluster) {
+          notify({
+            type: "warning",
+            title: "Chưa chọn được cụm rạp",
+            message:
+              "Bạn chọn lại hệ thống rạp và cụm rạp rồi thử thêm lịch chiếu.",
+          });
+          return;
+        }
+
+        if (!selectedCinema) {
+          notify({
+            type: "warning",
+            title: "Chưa chọn được rạp",
+            message:
+              "Danh sách rạp chưa khớp với cụm rạp hiện tại. Bạn chọn lại rạp rồi thử tiếp.",
+          });
+          return;
+        }
+
         const showtimeData = {
           maPhim: Number(values.maPhim),
           ngayChieuGioChieu: formatApiDateTime(
             values.ngayChieu,
             values.gioChieu,
           ),
-          maRap: Number(values.maRap),
+          maRap: values.maRap.toString(),
           giaVe: Number(values.giaVe),
         };
 
         await createShowtime.mutateAsync(showtimeData);
-        alert(
-          editingShowtime
-            ? "Tạo lịch chiếu mới từ thông tin đã sửa thành công"
+        notify({
+          type: "success",
+          title: editingShowtime
+            ? "Tạo lịch chiếu thành công"
             : "Thêm lịch chiếu thành công",
-        );
+          message: "Lịch chiếu đã được cập nhật trong hệ thống",
+        });
         resetForm();
         setEditingShowtime(null);
         setIsModalOpen(false);
       } catch (error) {
         console.log(error);
-        alert("Chọn sai cụm rạp");
+        const apiMessage =
+          error.response?.data?.content ||
+          error.response?.data?.message ||
+          error.message ||
+          "Không thể tạo lịch chiếu. Bạn kiểm tra lại thông tin vừa nhập.";
+
+        notify({
+          type: "error",
+          title: "Tạo lịch chiếu thất bại",
+          message: apiMessage,
+        });
       }
     },
   });
@@ -329,7 +370,7 @@ const ShowtimePage = () => {
                   <button
                     type="button"
                     onClick={() => navigate(`/admin/showtimes/${movie.maPhim}`)}
-                    className="w-full text-left flex-1"
+                    className="w-full cursor-pointer text-left flex-1"
                   >
                     <div className="flex gap-4 p-4 h-full">
                       <img
@@ -385,7 +426,7 @@ const ShowtimePage = () => {
           </div>
 
           {filteredMovies.length > MOVIE_PAGE_SIZE && (
-            <div className="flex items-center justify-center gap-2 mt-6">
+            <div className="flex flex-wrap items-center justify-center gap-2 mt-6">
               <button
                 type="button"
                 onClick={() => changeMoviePage(Math.max(1, safeMoviePage - 1))}
@@ -436,18 +477,18 @@ const ShowtimePage = () => {
 
       {isDetailPage && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <button
               type="button"
               onClick={() => navigate("/admin/showtimes")}
-              className="text-gray-400 hover:text-white text-sm transition-colors"
+              className="cursor-pointer text-gray-400 hover:text-white text-sm transition-colors"
             >
               &lt; Quay lại danh sách phim
             </button>
             <button
               type="button"
               onClick={openAddModal}
-              className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 text-sm font-bold px-4 py-2.5 rounded-lg transition-colors"
+              className="cursor-pointer bg-yellow-400 hover:bg-yellow-500 text-gray-900 text-sm font-bold px-4 py-2.5 rounded-lg transition-colors"
             >
               Thêm lịch chiếu
             </button>
@@ -542,7 +583,7 @@ const ShowtimePage = () => {
                       key={`${system.maHeThongRap}-${cluster.maCumRap}`}
                       type="button"
                       onClick={() => setSelectedCluster({ system, cluster })}
-                      className="w-full text-left px-6 py-5 hover:bg-gray-800/60 transition-colors"
+                      className="w-full cursor-pointer text-left px-4 py-5 hover:bg-gray-800/60 transition-colors sm:px-6"
                     >
                       <div className="flex items-start gap-4">
                         <img
@@ -579,8 +620,14 @@ const ShowtimePage = () => {
       )}
 
       {selectedCluster && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-3xl shadow-2xl max-h-[88vh] flex flex-col overflow-hidden">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6"
+          onClick={closeSchedulePopup}
+        >
+          <div
+            className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-3xl shadow-2xl max-h-[88vh] flex flex-col overflow-hidden"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-gray-800">
               <div>
                 <p className="text-yellow-400 text-xs font-medium mb-1">
@@ -596,7 +643,7 @@ const ShowtimePage = () => {
               <button
                 type="button"
                 onClick={closeSchedulePopup}
-                className="text-gray-500 hover:text-white transition-colors text-xl leading-none"
+                className="cursor-pointer text-gray-500 hover:text-white transition-colors text-xl leading-none"
               >
                 x
               </button>
@@ -644,7 +691,7 @@ const ShowtimePage = () => {
                             showtime,
                           )
                         }
-                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                        className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
                       >
                         Sửa
                       </button>
@@ -658,8 +705,14 @@ const ShowtimePage = () => {
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4">
-          <div className="bg-gray-900 rounded-2xl border border-gray-800 w-full max-w-2xl shadow-2xl">
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4 py-6"
+          onClick={closeModal}
+        >
+          <div
+            className="bg-gray-900 rounded-2xl border border-gray-800 w-full max-w-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="flex items-center justify-between px-6 py-5 border-b border-gray-800">
               <h3 className="text-white text-lg font-bold">
                 {editingShowtime ? "Sửa lịch chiếu" : "Thêm lịch chiếu mới"}
@@ -667,7 +720,7 @@ const ShowtimePage = () => {
               <button
                 type="button"
                 onClick={closeModal}
-                className="text-gray-500 hover:text-white transition-colors text-xl leading-none"
+                className="cursor-pointer text-gray-500 hover:text-white transition-colors text-xl leading-none"
               >
                 x
               </button>
@@ -774,7 +827,9 @@ const ShowtimePage = () => {
                   </label>
                   <select
                     {...formik.getFieldProps("maRap")}
-                    disabled={!formik.values.maCumRap}
+                    disabled={
+                      !formik.values.maCumRap || isCinemaClusterLoading
+                    }
                     className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-yellow-400 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <option value="">Chọn rạp</option>
@@ -856,7 +911,11 @@ const ShowtimePage = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={!formik.isValid || createShowtime.isPending}
+                  disabled={
+                    !formik.isValid ||
+                    createShowtime.isPending ||
+                    isCinemaClusterLoading
+                  }
                   className="bg-yellow-400 hover:bg-yellow-500 disabled:bg-yellow-700 text-gray-900 font-bold px-5 py-2.5 rounded-xl text-sm transition-colors"
                 >
                   {editingShowtime
