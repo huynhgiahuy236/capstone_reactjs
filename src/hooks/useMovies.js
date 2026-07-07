@@ -1,21 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { movieApi } from "../api/movieApi"
 
-export const useMovieList = (maNhom = 'GP01') => {
+export const useMovieList = (maNhom = 'GP01', tenPhim = '', enabled = true) => {
     return useQuery({
-        queryKey: ['movieList', maNhom],
+        queryKey: ['movieList', maNhom, tenPhim],
         queryFn: async () => {
-            const response = await movieApi.getMovieList(maNhom)
+            const response = await movieApi.getMovieList(maNhom, tenPhim)
             return response.data.content
-        }
+        },
+        enabled
     })
 }
 
-export const useMovieListPhanTrang = (soTrang = 1, soPhanTuTrenTrang = 10) => {
+export const useMovieListPhanTrang = (soTrang = 1, soPhanTuTrenTrang = 10, tenPhim = '') => {
     return useQuery({
-        queryKey: ['movieListPhanTrang', soTrang, soPhanTuTrenTrang],
+        queryKey: ['movieListPhanTrang', soTrang, soPhanTuTrenTrang, tenPhim],
         queryFn: async () => {
-            const response = await movieApi.getMovieListPhanTrang('GP01', soTrang, soPhanTuTrenTrang)
+            const response = await movieApi.getMovieListPhanTrang('GP01', soTrang, soPhanTuTrenTrang, tenPhim)
             return response.data.content
         }
     })
