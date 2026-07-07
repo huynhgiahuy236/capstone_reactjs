@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useMovieList } from '../hooks/useMovies'
 import LoadingSpinner from '../components/LoadingSpinner'
 import MovieCard from '../components/MovieCard'
@@ -27,7 +27,7 @@ const movieSections = [
         title: 'Đang chiếu',
         eyebrow: 'Now showing',
         description: 'Các phim đang có lịch chiếu tại rạp',
-        getMovies: (movies) => movies.filter((movie) => movie.dangChieu && !movie.sapChieu && !movie.hot)
+        getMovies: (movies) => movies.filter((movie) => movie.dangChieu)
     },
     {
         key: 'sap-chieu',
@@ -35,13 +35,6 @@ const movieSections = [
         eyebrow: 'Coming soon',
         description: 'Các phim sắp ra mắt trong thời gian tới',
         getMovies: (movies) => movies.filter((movie) => movie.sapChieu && !movie.dangChieu && !movie.hot)
-    },
-    {
-        key: 'dang-sap-chieu',
-        title: 'Đang chiếu và sắp chiếu',
-        eyebrow: 'Mixed status',
-        description: 'Nhóm phim bị trùng trạng thái từ API',
-        getMovies: (movies) => movies.filter((movie) => movie.dangChieu && movie.sapChieu && !movie.hot)
     }
 ]
 
@@ -57,7 +50,7 @@ const MovieSection = ({ section, movies, preview = false }) => {
     }
 
     return (
-        <section className="py-12 border-b border-gray-800/80 last:border-b-0">
+        <section id={section.key === 'hot' ? 'phim-hot' : section.key} className="scroll-mt-32 py-12 border-b border-gray-800/80 last:border-b-0">
             <div className="text-center max-w-3xl mx-auto mb-8">
                 <div className="inline-flex items-center gap-3 mb-3">
                     <span className="h-px w-12 bg-yellow-400/70" />
@@ -93,6 +86,7 @@ const MovieSection = ({ section, movies, preview = false }) => {
 
 const MovieListPage = () => {
     const [searchParams] = useSearchParams()
+    const location = useLocation()
     const [searchTerm, setSearchTerm] = useState('')
     const debouncedSearchTerm = useDebouncedValue(searchTerm, 2000)
     const selectedType = searchParams.get('type')
@@ -128,6 +122,23 @@ const MovieListPage = () => {
     const isCategoryView = selectedSection !== undefined
     const isOverview = !isAllView && !isCategoryView
     const isWaitingForDebounce = searchTerm !== debouncedSearchTerm
+
+    useEffect(() => {
+        if (!location.hash || isLoading || isError || !isOverview) return
+
+        const scrollTimer = setTimeout(() => {
+            const target = document.querySelector(location.hash)
+
+            if (target) {
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                })
+            }
+        }, 100)
+
+        return () => clearTimeout(scrollTimer)
+    }, [location.hash, isLoading, isError, isOverview, filteredMovies.length])
 
     return (
         <div className="min-h-screen bg-gray-950 text-white">
