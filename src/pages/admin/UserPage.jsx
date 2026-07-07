@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import * as Yup from 'yup'
 import LoadingSpinner from '../../components/LoadingSpinner'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
+import { useAdminFeedback } from '../../hooks/useAdminFeedback'
 import { useAddUser, useDeleteUser, useUpdateUser, useUsers } from '../../hooks/useUser'
 import { login, selectorUser } from '../../store/authSlice'
 
@@ -33,6 +34,7 @@ const UserPage = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
+  const { notify, confirm } = useAdminFeedback()
   const PAGE_SIZE = 10
   const isAdmin = currentUser?.maLoaiNguoiDung === 'QuanTri'
 
@@ -72,7 +74,7 @@ const UserPage = () => {
     validationSchema: userSchema,
     onSubmit: async (values, { resetForm }) => {
       if (!isAdmin) {
-        alert('Ban khong co quyen quan ly nguoi dung')
+        notify({ type: 'error', title: 'Không có quyền', message: 'Bạn không có quyền quản lý người dùng' })
         return
       }
 
@@ -102,16 +104,17 @@ const UserPage = () => {
         resetForm()
         setEditingUser(null)
         setIsModalOpen(false)
+        notify({ type: 'success', title: editingUser ? 'Cập nhật thành công' : 'Thêm người dùng thành công', message: userData.taiKhoan })
       } catch (error) {
         console.log(error)
-        alert(error.response?.data?.content || 'Lưu người dùng thất bại')
+        notify({ type: 'error', title: 'Lưu người dùng thất bại', message: error.response?.data?.content || 'Lưu người dùng thất bại' })
       }
     }
   })
 
   const openAddModal = () => {
     if (!isAdmin) {
-      alert('Ban khong co quyen quan ly nguoi dung')
+      notify({ type: 'error', title: 'Không có quyền', message: 'Bạn không có quyền quản lý người dùng' })
       return
     }
 
@@ -122,7 +125,7 @@ const UserPage = () => {
 
   const openEditModal = (user) => {
     if (!isAdmin) {
-      alert('Ban khong co quyen quan ly nguoi dung')
+      notify({ type: 'error', title: 'Không có quyền', message: 'Bạn không có quyền quản lý người dùng' })
       return
     }
 
@@ -147,11 +150,17 @@ const UserPage = () => {
 
   const handleDeleteUser = async (taiKhoan) => {
     if (!isAdmin) {
-      alert('Ban khong co quyen quan ly nguoi dung')
+      notify({ type: 'error', title: 'Không có quyền', message: 'Bạn không có quyền quản lý người dùng' })
       return
     }
 
-    const isConfirmed = window.confirm(`Bạn có chắc muốn xóa user ${taiKhoan}?`)
+    const isConfirmed = await confirm({
+      title: 'Xóa người dùng',
+      message: `Bạn có chắc muốn xóa user ${taiKhoan}?`,
+      confirmText: 'Xóa user',
+      cancelText: 'Hủy',
+      tone: 'danger',
+    })
 
     if (!isConfirmed) {
       return
@@ -159,9 +168,10 @@ const UserPage = () => {
 
     try {
       await deleteUser.mutateAsync(taiKhoan)
+      notify({ type: 'success', title: 'Xóa người dùng thành công', message: taiKhoan })
     } catch (error) {
       console.log(error)
-      alert(error.response?.data?.content || 'Xóa người dùng thất bại')
+      notify({ type: 'error', title: 'Xóa người dùng thất bại', message: error.response?.data?.content || 'Xóa người dùng thất bại' })
     }
   }
 
@@ -175,15 +185,16 @@ const UserPage = () => {
         )
       }
 
-      <div className="flex items-center justify-between mb-6 gap-4">
-        <div>
+      <div className="flex flex-col mb-6 gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="min-w-0">
           <h2 className="text-white text-2xl font-bold">Danh sách người dùng</h2>
           <p className="text-gray-400 text-sm mt-1">
             Trang <span className="text-yellow-400 font-medium">{currentPage}</span> / {totalPages} - Tổng <span className="text-yellow-400 font-medium">{totalCount}</span> người dùng
           </p>
         </div>
 
-        <div className="relative w-72">
+        <div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
+        <div className="relative w-full sm:w-72">
           <input
             type="text"
             value={searchTerm}
@@ -202,10 +213,11 @@ const UserPage = () => {
 
         <button
           onClick={openAddModal}
-          className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
+          className="cursor-pointer bg-yellow-400 hover:bg-yellow-500 text-gray-900 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors"
         >
           Thêm người dùng
         </button>
+        </div>
       </div>
 
       <div className="bg-gray-900 rounded-xl overflow-hidden border border-gray-800">
@@ -254,16 +266,16 @@ const UserPage = () => {
                       }
                     </td>
                     <td className="px-5 py-4">
-                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-2 opacity-100 transition-opacity">
                         <button
                           onClick={() => openEditModal(user)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                          className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
                         >
                           Sửa
                         </button>
                         <button
                           onClick={() => handleDeleteUser(user.taiKhoan)}
-                          className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                          className="cursor-pointer bg-red-600 hover:bg-red-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
                         >
                           Xóa
                         </button>
@@ -284,7 +296,7 @@ const UserPage = () => {
         }
       </div>
 
-      <div className="flex items-center justify-center gap-2 mt-6">
+      <div className="flex flex-wrap items-center justify-center gap-2 mt-6">
         <button
           onClick={() => setCurrentPage(page => page - 1)}
           disabled={currentPage === 1}
@@ -317,8 +329,14 @@ const UserPage = () => {
 
       {
         isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-            <div className="bg-gray-900 rounded-2xl border border-gray-800 w-full max-w-lg shadow-2xl">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+            onClick={closeModal}
+          >
+            <div
+              className="bg-gray-900 rounded-2xl border border-gray-800 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto"
+              onClick={(event) => event.stopPropagation()}
+            >
               <div className="flex items-center justify-between px-6 py-5 border-b border-gray-800">
                 <h3 className="text-white text-lg font-bold">
                   {editingUser ? 'Cập nhật người dùng' : 'Thêm người dùng mới'}
@@ -332,7 +350,7 @@ const UserPage = () => {
               </div>
 
               <form onSubmit={formik.handleSubmit} className="px-6 py-5 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-gray-400 text-xs font-medium mb-1.5">Tài khoản</label>
                     <input
@@ -386,7 +404,7 @@ const UserPage = () => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-gray-400 text-xs font-medium mb-1.5">Số điện thoại</label>
                     <input
@@ -414,7 +432,7 @@ const UserPage = () => {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-2">
+                <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
                   <button
                     type="button"
                     onClick={closeModal}
