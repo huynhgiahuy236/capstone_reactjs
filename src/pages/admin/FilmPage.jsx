@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux'
 import * as Yup from 'yup'
 import LoadingSpinner from '../../components/LoadingSpinner'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
-import { useAddMovie, useDeleteMovie, useMovieListPhanTrang, useUpdateMovie } from '../../hooks/useMovies'
+import { useAddMovie, useDeleteMovie, useMovieList, useMovieListPhanTrang, useUpdateMovie } from '../../hooks/useMovies'
 import { selectorUser } from '../../store/authSlice'
 
 const movieSchema = Yup.object().shape({
@@ -31,14 +31,34 @@ const initialMovieValues = {
   maNhom: 'GP01'
 }
 
-const createSlug = (text) => {
+const createSlug = (text = '') => {
   return text
+    .toString()
     .trim()
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '')
+}
+
+const createUploadFileName = (file, values) => {
+  const originalName = file?.name || ''
+  const extension = originalName.includes('.')
+    ? originalName.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '')
+    : 'jpg'
+  const safeExtension = extension || 'jpg'
+  const baseName = createSlug(`${values.tenPhim || 'movie'}-${values.maPhim || Date.now()}`) || 'movie'
+
+  return `${baseName}-${Date.now()}.${safeExtension}`
+}
+
+const normalizeText = (text = '') => {
+  return text
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
 }
 
 const formatInputDate = (dateValue) => {
@@ -66,6 +86,11 @@ const formatApiDate = (dateValue) => {
 
 const buildMovieFormData = (values, isEdit) => {
   const formData = new FormData()
+  const uploadFileName = values.hinhAnhFile ? createUploadFileName(values.hinhAnhFile, values) : ''
+  const uploadFile = values.hinhAnhFile
+    ? new File([values.hinhAnhFile], uploadFileName, { type: values.hinhAnhFile.type })
+    : null
+  const imageName = uploadFile?.name || values.hinhAnh
 
   if (isEdit) {
     formData.append('maPhim', values.maPhim)
@@ -82,8 +107,12 @@ const buildMovieFormData = (values, isEdit) => {
   formData.append('dangChieu', values.dangChieu)
   formData.append('sapChieu', values.sapChieu)
 
-  if (values.hinhAnhFile) {
-    formData.append('File', values.hinhAnhFile)
+  if (imageName) {
+    formData.append('hinhAnh', imageName)
+  }
+
+  if (uploadFile) {
+    formData.append('File', uploadFile)
   }
 
   return formData
@@ -98,32 +127,43 @@ const FilmPage = () => {
   const PAGE_SIZE = 10
   const isAdmin = currentUser?.maLoaiNguoiDung === 'QuanTri'
 
-  const { data, isLoading, isError, error } = useMovieListPhanTrang(currentPage, PAGE_SIZE)
+  const debouncedSearchTerm = useDebouncedValue(searchTerm, 2000)
+  const searchKeyword = debouncedSearchTerm.trim()
+  const isSearchMode = searchKeyword !== ''
+  const paginatedMovies = useMovieListPhanTrang(currentPage, PAGE_SIZE)
+  const searchMovies = useMovieList('GP01', '', isSearchMode)
   const addMovie = useAddMovie()
   const updateMovie = useUpdateMovie()
   const deleteMovie = useDeleteMovie()
   const isSubmitting = addMovie.isPending || updateMovie.isPending
-  const movies = useMemo(() => data?.items || [], [data?.items])
-  const totalPages = data?.totalPages || 1
-  const totalCount = data?.totalCount || 0
-  const debouncedSearchTerm = useDebouncedValue(searchTerm, 2000)
-  const isSearching = searchTerm !== debouncedSearchTerm
-
-  const filteredMovies = useMemo(() => {
-    const keyword = debouncedSearchTerm.trim().toLowerCase()
+  const searchItems = useMemo(() => {
+    const keyword = normalizeText(searchKeyword)
+    const movieList = searchMovies.data || []
 
     if (!keyword) {
-      return movies
+      return movieList
     }
 
-    return movies.filter((movie) => {
-      return (
-        movie.tenPhim?.toLowerCase().includes(keyword) ||
-        movie.biDanh?.toLowerCase().includes(keyword) ||
-        movie.maPhim?.toString().includes(keyword)
-      )
-    })
-  }, [movies, debouncedSearchTerm])
+    return movieList.filter((movie) => (
+      normalizeText(movie.tenPhim).includes(keyword) ||
+      normalizeText(movie.biDanh).includes(keyword) ||
+      movie.maPhim?.toString().includes(keyword)
+    ))
+  }, [searchKeyword, searchMovies.data])
+  const movies = useMemo(() => {
+    if (!isSearchMode) {
+      return paginatedMovies.data?.items || []
+    }
+
+    const startIndex = (currentPage - 1) * PAGE_SIZE
+    return searchItems.slice(startIndex, startIndex + PAGE_SIZE)
+  }, [currentPage, isSearchMode, paginatedMovies.data?.items, searchItems])
+  const totalPages = isSearchMode ? Math.max(1, Math.ceil(searchItems.length / PAGE_SIZE)) : paginatedMovies.data?.totalPages || 1
+  const totalCount = isSearchMode ? searchItems.length : paginatedMovies.data?.totalCount || 0
+  const isLoading = isSearchMode ? searchMovies.isLoading : paginatedMovies.isLoading
+  const isError = isSearchMode ? searchMovies.isError : paginatedMovies.isError
+  const error = isSearchMode ? searchMovies.error : paginatedMovies.error
+  const isSearching = searchTerm !== debouncedSearchTerm
 
   const formik = useFormik({
     initialValues: initialMovieValues,
@@ -135,11 +175,6 @@ const FilmPage = () => {
       }
 
       try {
-        if (editingMovie && !values.hinhAnhFile) {
-          alert('API cap nhat phim yeu cau file anh. Vui long chon file anh khi cap nhat phim.')
-          return
-        }
-
         const formData = buildMovieFormData(values, !!editingMovie)
 
         if (editingMovie) {
@@ -234,7 +269,7 @@ const FilmPage = () => {
         <div>
           <h2 className="text-white text-2xl font-bold">Danh sách phim</h2>
           <p className="text-gray-400 text-sm mt-1">
-            Trang <span className="text-yellow-400 font-medium">{currentPage}</span> / {totalPages} - Hiển thị <span className="text-yellow-400 font-medium">{filteredMovies.length}</span> / Tổng <span className="text-yellow-400 font-medium">{totalCount}</span> phim
+            Trang <span className="text-yellow-400 font-medium">{currentPage}</span> / {totalPages} - Hiển thị <span className="text-yellow-400 font-medium">{movies.length}</span> / Tổng <span className="text-yellow-400 font-medium">{totalCount}</span> phim
           </p>
         </div>
 
@@ -242,7 +277,10 @@ const FilmPage = () => {
           <input
             type="text"
             value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
+            onChange={(event) => {
+              setSearchTerm(event.target.value)
+              setCurrentPage(1)
+            }}
             placeholder="Tìm theo tên phim, bí danh, mã phim..."
             className="w-full bg-gray-800 text-white placeholder-gray-500 border border-gray-700 rounded-xl px-4 py-2.5 pr-10 outline-none focus:ring-2 focus:ring-yellow-400 text-sm transition-all"
           />
@@ -288,7 +326,7 @@ const FilmPage = () => {
             </thead>
             <tbody className="divide-y divide-gray-800">
               {
-                filteredMovies.map((movie) => (
+                movies.map((movie) => (
                   <tr key={movie.maPhim} className="hover:bg-gray-800/50 transition-colors group">
                     <td className="px-5 py-4 text-gray-400">#{movie.maPhim}</td>
                     <td className="px-5 py-4">
@@ -336,7 +374,7 @@ const FilmPage = () => {
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-2">
                         <button
                           onClick={() => openEditModal(movie)}
                           className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
@@ -359,7 +397,7 @@ const FilmPage = () => {
         </div>
 
         {
-          !isLoading && filteredMovies.length === 0 && (
+          !isLoading && movies.length === 0 && (
             <div className="text-center py-12">
               <p className="text-gray-400">Không tìm thấy phim phù hợp</p>
             </div>
@@ -495,9 +533,21 @@ const FilmPage = () => {
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(event) => formik.setFieldValue('hinhAnhFile', event.currentTarget.files[0])}
+                      onChange={(event) => formik.setFieldValue('hinhAnhFile', event.currentTarget.files[0] || null)}
                       className="w-full bg-gray-800 text-gray-300 border border-gray-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-yellow-400 text-sm"
                     />
+                    {editingMovie && formik.values.hinhAnh && !formik.values.hinhAnhFile && (
+                      <img
+                        src={formik.values.hinhAnh}
+                        alt={formik.values.tenPhim}
+                        className="w-16 h-20 object-cover rounded-lg bg-gray-800 border border-gray-700 mt-2"
+                      />
+                    )}
+                    {formik.values.hinhAnhFile && (
+                      <p className="text-gray-400 text-xs mt-2 line-clamp-1">
+                        {formik.values.hinhAnhFile.name}
+                      </p>
+                    )}
                   </div>
                 </div>
 

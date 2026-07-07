@@ -1,11 +1,27 @@
 import axiosInstance from "./axiosInstance"
 
 export const movieApi = {
-    getMovieList: (maNhom = 'GP01') => {
-        return axiosInstance.get(`/QuanLyPhim/LayDanhSachPhim?maNhom=${maNhom}`)
+    getMovieList: (maNhom = 'GP01', tenPhim = '') => {
+        const params = { maNhom }
+
+        if (tenPhim) {
+            params.tenPhim = tenPhim
+        }
+
+        return axiosInstance.get('/QuanLyPhim/LayDanhSachPhim', { params })
     },
-    getMovieListPhanTrang: (maNhom = 'GP01', soTrang = 1, soPhanTuTrenTrang = 10) => {
-        return axiosInstance.get(`/QuanLyPhim/LayDanhSachPhimPhanTrang?maNhom=${maNhom}&soTrang=${soTrang}&soPhanTuTrenTrang=${soPhanTuTrenTrang}`)
+    getMovieListPhanTrang: (maNhom = 'GP01', soTrang = 1, soPhanTuTrenTrang = 10, tenPhim = '') => {
+        const params = {
+            maNhom,
+            soTrang,
+            soPhanTuTrenTrang
+        }
+
+        if (tenPhim) {
+            params.tenPhim = tenPhim
+        }
+
+        return axiosInstance.get('/QuanLyPhim/LayDanhSachPhimPhanTrang', { params })
     },
     getMovieDetail: (maPhim) => {
         return axiosInstance.get(`/QuanLyPhim/LayThongTinPhim?maPhim=${maPhim}`)
