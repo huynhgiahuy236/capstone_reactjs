@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import LoadingSpinner from "../components/LoadingSpinner";
+import { useAdminFeedback } from "../hooks/useAdminFeedback";
 import { useBookTickets, useTicketRoom } from "../hooks/useBooking";
 import { useLichChieuPhim } from "../hooks/useCinema";
 import { useMovieDetail } from "../hooks/useMovies";
@@ -86,6 +87,7 @@ const BookingPage = () => {
   const [selectedScheduleDate, setSelectedScheduleDate] = useState("");
   const [scheduleStartOffset, setScheduleStartOffset] = useState(0);
   const [selectedSeats, setSelectedSeats] = useState([]);
+  const { notify } = useAdminFeedback();
 
   const { data: movie, isLoading: isMovieLoading } = useMovieDetail(maPhim);
   const {
@@ -293,12 +295,20 @@ const BookingPage = () => {
 
   const handleBookTickets = async () => {
     if (!selectedShowtimeId) {
-      alert("Bạn chưa chọn suất chiếu");
+      notify({
+        type: "warning",
+        title: "Chưa chọn suất chiếu",
+        message: "Bạn chọn một suất chiếu trước khi đặt vé.",
+      });
       return;
     }
 
     if (selectedSeats.length === 0) {
-      alert("Bạn chưa chọn ghế");
+      notify({
+        type: "warning",
+        title: "Chưa chọn ghế",
+        message: "Bạn chọn ít nhất một ghế để tiếp tục đặt vé.",
+      });
       return;
     }
 
@@ -311,11 +321,19 @@ const BookingPage = () => {
         })),
       });
 
-      alert("Đặt vé thành công");
+      notify({
+        type: "success",
+        title: "Đặt vé thành công",
+        message: `${selectedSeats.length} ghế - ${formatMoney(totalPrice)} VND`,
+      });
       setSelectedSeats([]);
     } catch (error) {
       console.log(error);
-      alert(error.response?.data?.content || "Đặt vé thất bại");
+      notify({
+        type: "error",
+        title: "Đặt vé thất bại",
+        message: error.response?.data?.content || "Không thể đặt vé lúc này.",
+      });
     }
   };
 

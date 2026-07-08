@@ -5,7 +5,7 @@ import * as Yup from 'yup'
 import LoadingSpinner from '../../components/LoadingSpinner'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { useAdminFeedback } from '../../hooks/useAdminFeedback'
-import { useAddUser, useDeleteUser, useUpdateUser, useUsers } from '../../hooks/useUser'
+import { useAddUser, useDeleteUser, useUpdateUser, useUserList, useUsers } from '../../hooks/useUser'
 import { login, selectorUser } from '../../store/authSlice'
 
 const userSchema = Yup.object().shape({
@@ -38,26 +38,27 @@ const UserPage = () => {
   const PAGE_SIZE = 10
   const isAdmin = currentUser?.maLoaiNguoiDung === 'QuanTri'
 
-  const { data, isLoading } = useUsers(currentPage, PAGE_SIZE)
+  const debouncedSearchTerm = useDebouncedValue(searchTerm, 2000)
+  const searchKeyword = debouncedSearchTerm.trim()
+  const isSearchMode = searchKeyword !== ''
+  const paginatedUsers = useUsers(currentPage, PAGE_SIZE)
+  const searchUsers = useUserList('GP01', isSearchMode)
   const addUser = useAddUser()
   const updateUser = useUpdateUser()
   const deleteUser = useDeleteUser()
 
-  const users = useMemo(() => data?.items || [], [data?.items])
-  const totalPages = data?.totalPages || 1
-  const totalCount = data?.totalCount || 0
   const isSubmitting = addUser.isPending || updateUser.isPending
-  const debouncedSearchTerm = useDebouncedValue(searchTerm, 2000)
   const isSearching = searchTerm !== debouncedSearchTerm
 
-  const filteredUsers = useMemo(() => {
-    const keyword = debouncedSearchTerm.trim().toLowerCase()
+  const searchItems = useMemo(() => {
+    const keyword = searchKeyword.toLowerCase()
+    const userList = searchUsers.data || []
 
     if (!keyword) {
-      return users
+      return userList
     }
 
-    return users.filter((user) => {
+    return userList.filter((user) => {
       return (
         user.taiKhoan?.toLowerCase().includes(keyword) ||
         user.hoTen?.toLowerCase().includes(keyword) ||
@@ -67,7 +68,19 @@ const UserPage = () => {
         user.maLoaiNguoiDung?.toLowerCase().includes(keyword)
       )
     })
-  }, [users, debouncedSearchTerm])
+  }, [searchKeyword, searchUsers.data])
+
+  const users = useMemo(() => {
+    if (!isSearchMode) {
+      return paginatedUsers.data?.items || []
+    }
+
+    const startIndex = (currentPage - 1) * PAGE_SIZE
+    return searchItems.slice(startIndex, startIndex + PAGE_SIZE)
+  }, [currentPage, isSearchMode, paginatedUsers.data?.items, searchItems])
+  const totalPages = isSearchMode ? Math.max(1, Math.ceil(searchItems.length / PAGE_SIZE)) : paginatedUsers.data?.totalPages || 1
+  const totalCount = isSearchMode ? searchItems.length : paginatedUsers.data?.totalCount || 0
+  const isLoading = isSearchMode ? searchUsers.isLoading : paginatedUsers.isLoading
 
   const formik = useFormik({
     initialValues: initialUserValues,
@@ -198,7 +211,10 @@ const UserPage = () => {
           <input
             type="text"
             value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
+            onChange={(event) => {
+              setSearchTerm(event.target.value)
+              setCurrentPage(1)
+            }}
             placeholder="Tìm theo tên, tài khoản, email..."
             className="w-full bg-gray-800 text-white placeholder-gray-500 border border-gray-700 rounded-xl px-4 py-2.5 pr-10 outline-none focus:ring-2 focus:ring-yellow-400 text-sm transition-all"
           />
@@ -236,9 +252,9 @@ const UserPage = () => {
             </thead>
             <tbody className="divide-y divide-gray-800">
               {
-                filteredUsers.map((user, index) => (
+                users.map((user, index) => (
                   <tr key={user.taiKhoan} className="hover:bg-gray-800/50 transition-colors group">
-                    <td className="px-5 py-4 text-gray-500">{index + 1}</td>
+                    <td className="px-5 py-4 text-gray-500">{(currentPage - 1) * PAGE_SIZE + index + 1}</td>
                     <td className="px-5 py-4">
                       <span className="text-white font-medium">{user.taiKhoan}</span>
                     </td>
@@ -288,7 +304,7 @@ const UserPage = () => {
           </table>
         </div>
         {
-          !isLoading && filteredUsers.length === 0 && (
+          !isLoading && users.length === 0 && (
             <div className="text-center py-12">
               <p className="text-gray-400">Không tìm thấy người dùng phù hợp</p>
             </div>

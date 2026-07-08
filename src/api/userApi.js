@@ -1,6 +1,9 @@
 import axiosInstance from "./axiosInstance"
 
 export const userApi = {
+    getUserList: (maNhom = 'GP01') => {
+        return axiosInstance.get(`/QuanLyNguoiDung/LayDanhSachNguoiDung?MaNhom=${maNhom}`)
+    },
     getUserListPhanTrang: (maNhom = 'GP01', soTrang = 1, soPhanTuTrenTrang = 10) => {
         return axiosInstance.get(`/QuanLyNguoiDung/LayDanhSachNguoiDungPhanTrang?MaNhom=${maNhom}&soTrang=${soTrang}&soPhanTuTrenTrang=${soPhanTuTrenTrang}`)
     },

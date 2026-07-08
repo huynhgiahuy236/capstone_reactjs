@@ -14,6 +14,18 @@ export const useCreateShowtime = () => {
     })
 }
 
+export const useDeleteShowtime = () => {
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: ({ maLichChieu }) => bookingApi.deleteShowtime(maLichChieu),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['movieList'] })
+            queryClient.invalidateQueries({ queryKey: ['lichChieuPhim', variables.maPhim?.toString()] })
+        }
+    })
+}
+
 export const useTicketRoom = (maLichChieu) => {
     return useQuery({
         queryKey: ['ticketRoom', maLichChieu],

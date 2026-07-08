@@ -24,6 +24,17 @@ export const useUsers = (soTrang = 1, soPhanTuTrenTrang = 10) => {
     })
 }
 
+export const useUserList = (maNhom = 'GP01', enabled = true) => {
+    return useQuery({
+        queryKey: ['userList', maNhom],
+        queryFn: async () => {
+            const response = await userApi.getUserList(maNhom)
+            return response.data.content
+        },
+        enabled
+    })
+}
+
 export const useAddUser = () => {
     // dùng queryClient để tương tác với cache của tanstack query
     const queryClient = useQueryClient()
@@ -33,6 +44,7 @@ export const useAddUser = () => {
             // sau khi thêm user thành công, thông báo tanstack query biết là
             // list data trong cache đã cũ và cần gọi lại API để lấy dữ liệu mới
             queryClient.invalidateQueries({queryKey: ['users']})
+            queryClient.invalidateQueries({queryKey: ['userList']})
         }
     })
 }
@@ -43,6 +55,7 @@ export const useUpdateUser = () => {
         mutationFn: (userData) => userApi.updateUser(userData),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['users'] })
+            queryClient.invalidateQueries({ queryKey: ['userList'] })
         }
     })
 }
@@ -53,6 +66,7 @@ export const useDeleteUser = () => {
         mutationFn: (taiKhoan) => userApi.deleteUser(taiKhoan),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['users'] })
+            queryClient.invalidateQueries({ queryKey: ['userList'] })
         }
     })
 }

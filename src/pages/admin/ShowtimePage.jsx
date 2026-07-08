@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import * as Yup from "yup";
 import LoadingSpinner from "../../components/LoadingSpinner";
-import { useCreateShowtime } from "../../hooks/useBooking";
+import { useCreateShowtime, useDeleteShowtime } from "../../hooks/useBooking";
 import {
   useCumRapTheoHeThong,
   useHeThongRap,
@@ -111,7 +111,7 @@ const ShowtimePage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingShowtime, setEditingShowtime] = useState(null);
   const [selectedCluster, setSelectedCluster] = useState(null);
-  const { notify } = useAdminFeedback();
+  const { notify, confirm } = useAdminFeedback();
 
   const {
     data: movies,
@@ -122,6 +122,7 @@ const ShowtimePage = () => {
   const { data: heThongRap, isLoading: isCinemaSystemLoading } =
     useHeThongRap();
   const createShowtime = useCreateShowtime();
+  const deleteShowtime = useDeleteShowtime();
 
   const {
     data: showtimeDetail,
@@ -296,6 +297,43 @@ const ShowtimePage = () => {
     setSelectedCluster(null);
   };
 
+  const handleDeleteShowtime = async (showtime) => {
+    const isConfirmed = await confirm({
+      title: "Xóa lịch chiếu",
+      message: `Bạn có chắc muốn xóa lịch chiếu #${showtime.maLichChieu}?`,
+      confirmText: "Xóa lịch chiếu",
+      cancelText: "Hủy",
+      tone: "danger",
+    });
+
+    if (!isConfirmed) {
+      return;
+    }
+
+    try {
+      await deleteShowtime.mutateAsync({
+        maLichChieu: showtime.maLichChieu,
+        maPhim,
+      });
+      notify({
+        type: "success",
+        title: "Xóa lịch chiếu thành công",
+        message: `Mã lịch chiếu #${showtime.maLichChieu}`,
+      });
+    } catch (error) {
+      console.log(error);
+      notify({
+        type: "error",
+        title: "Xóa lịch chiếu thất bại",
+        message:
+          error.response?.data?.content ||
+          error.response?.data?.message ||
+          error.message ||
+          "Không thể xóa lịch chiếu",
+      });
+    }
+  };
+
   const changeMoviePage = (page) => {
     setCurrentMoviePage(page);
     scrollPageTop();
@@ -306,7 +344,8 @@ const ShowtimePage = () => {
     isMovieLoading ||
     (isDetailPage && isShowtimeLoading) ||
     (isModalOpen && isCinemaSystemLoading) ||
-    createShowtime.isPending;
+    createShowtime.isPending ||
+    deleteShowtime.isPending;
   const movieInfo = showtimeDetail || selectedMovie;
 
   return (
@@ -682,19 +721,28 @@ const ShowtimePage = () => {
                           </p>
                         )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openEditModal(
-                            selectedCluster.system,
-                            selectedCluster.cluster,
-                            showtime,
-                          )
-                        }
-                        className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-                      >
-                        Sửa
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openEditModal(
+                              selectedCluster.system,
+                              selectedCluster.cluster,
+                              showtime,
+                            )
+                          }
+                          className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          Sửa
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteShowtime(showtime)}
+                          className="cursor-pointer bg-red-600 hover:bg-red-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          Xóa
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
