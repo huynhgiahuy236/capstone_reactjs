@@ -22,6 +22,34 @@ const formatDateTime = (dateValue) => {
 
 const formatMoney = (money) => Number(money || 0).toLocaleString('vi-VN')
 
+const SEAT_COLUMN_COUNT = 16
+
+const getSeatRowLabel = (rowIndex) => {
+    let label = ''
+    let index = rowIndex
+
+    do {
+        label = String.fromCharCode(65 + (index % 26)) + label
+        index = Math.floor(index / 26) - 1
+    } while (index >= 0)
+
+    return label
+}
+
+const formatSeatName = (seatName) => {
+    const seatNumber = Number.parseInt(seatName, 10)
+
+    if (!Number.isFinite(seatNumber) || seatNumber < 1) {
+        return seatName || 'Chưa rõ'
+    }
+
+    const seatIndex = seatNumber - 1
+    const rowLabel = getSeatRowLabel(Math.floor(seatIndex / SEAT_COLUMN_COUNT))
+    const columnNumber = (seatIndex % SEAT_COLUMN_COUNT) + 1
+
+    return `${rowLabel}${columnNumber}`
+}
+
 const getBookingPrice = (booking) => {
     const seats = booking.danhSachGhe || []
     const seatTotalPrice = seats.reduce((total, seat) => total + (seat.giaVe || 0), 0)
@@ -105,7 +133,7 @@ const BookingHistoryItem = ({ booking }) => {
                 <div className="flex flex-wrap gap-2">
                     {seats.map((seat) => (
                         <span key={seat.maGhe} className="bg-yellow-400/10 border border-yellow-400/40 text-yellow-400 text-xs font-bold px-2.5 py-1 rounded">
-                            Ghế {seat.tenGhe}
+                            Ghế {formatSeatName(seat.tenGhe)}
                         </span>
                     ))}
                 </div>
