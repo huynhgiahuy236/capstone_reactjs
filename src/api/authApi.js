@@ -8,5 +8,12 @@ export const authApi = {
                 "Content-Type": "application/json-patch+json"
             }
         })
+    },
+    register: (data) => {
+        return axiosInstance.post("/QuanLyNguoiDung/DangKy", data, {
+            headers: {
+                "Content-Type": "application/json-patch+json"
+            }
+        })
     }
 }

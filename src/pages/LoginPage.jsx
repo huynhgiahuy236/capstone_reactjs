@@ -1,6 +1,6 @@
 import { useFormik } from 'formik'
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import * as Yup from 'yup'
 import { authApi } from '../api/authApi'
 import { useDispatch } from 'react-redux'
@@ -18,13 +18,15 @@ const LoginPage = () => {
     const dispatch = useDispatch()
 
     const navigate = useNavigate()
+    const location = useLocation()
+    const registeredAccount = location.state?.registeredAccount
 
     // hàm xử lý submit form
     const formik = useFormik({
         // giá trị ban đầu của form
         initialValues: {
-            taiKhoan: "adminGiang",
-            matKhau: "123456"
+            taiKhoan: registeredAccount || "adminGiang",
+            matKhau: registeredAccount ? "" : "123456"
         },
         // validation schema để validate form
         validationSchema: loginSchema,
@@ -59,6 +61,12 @@ const LoginPage = () => {
                         <h2 className="text-white text-2xl font-bold mb-6">Đăng nhập</h2>
                         <form onSubmit={formik.handleSubmit}>
 
+                            {location.state?.registerSuccess && (
+                                <div className="bg-green-500/15 border border-green-500/40 text-green-100 text-sm font-medium px-4 py-3 rounded mb-4">
+                                    {location.state.registerSuccess}
+                                </div>
+                            )}
+
                             {
                                 apiError && (
                                     <div className="bg-red-500 text-white text-sm font-medium px-4 py-3 rounded mb-4">
@@ -80,7 +88,7 @@ const LoginPage = () => {
                                 {/* <input class="w-full bg-gray-700 text-white placeholder-gray-400 border border-red-500 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-400" /> */}
                                 {/* Error message — hiện khi có lỗi */}
                                 {formik.touched.taiKhoan && formik.errors.taiKhoan && (
-                                    <p class="text-red-400 text-sm mt-1">{formik.errors.taiKhoan}</p>
+                                    <p className="text-red-400 text-sm mt-1">{formik.errors.taiKhoan}</p>
                                 )}
                                 
                             </div>
@@ -94,7 +102,7 @@ const LoginPage = () => {
                                     className="w-full bg-gray-700 text-white placeholder-gray-400 border border-gray-600 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-400 transition-all"
                                 />
                                 {formik.touched.matKhau && formik.errors.matKhau && (
-                                    <p class="text-red-400 text-sm mt-1">{formik.errors.matKhau}</p>
+                                    <p className="text-red-400 text-sm mt-1">{formik.errors.matKhau}</p>
                                 )}
                                 
                             </div>
@@ -111,8 +119,8 @@ const LoginPage = () => {
     */}
                         </form>
                         <p className="text-center text-gray-400 text-sm mt-6">
-                            Chưa có tài khoản?
-                            <a href="/" className="text-yellow-400 hover:underline">Khám phá phim ngay</a>
+                            Chưa có tài khoản?{' '}
+                            <Link to="/register" className="text-yellow-400 font-bold hover:underline">Đăng ký ngay</Link>
                         </p>
                     </div>
                 </div>
