@@ -190,7 +190,6 @@ const ShowtimePage = () => {
         setEditingShowtime(null);
         setIsModalOpen(false);
       } catch (error) {
-        console.log(error);
         if (error.response?.status === 401) {
           notify({
             type: "error",
@@ -266,9 +265,9 @@ const ShowtimePage = () => {
     return filteredMovies.slice(startIndex, startIndex + MOVIE_PAGE_SIZE);
   }, [filteredMovies, safeMoviePage]);
 
-  const selectedCumRap = useMemo(() => {
-    return cumRap?.find((item) => item.maCumRap === formik.values.maCumRap);
-  }, [cumRap, formik.values.maCumRap]);
+  const selectedCumRap = cumRap?.find(
+    (item) => item.maCumRap === formik.values.maCumRap,
+  );
 
   const danhSachRap = selectedCumRap?.danhSachRap || [];
 
@@ -290,7 +289,7 @@ const ShowtimePage = () => {
     );
 
     formik.setFieldValue("maRap", matchedRap?.maRap?.toString() || "");
-  }, [selectedCumRap, editingShowtime, formik.values.maRap]);
+  }, [selectedCumRap, editingShowtime, formik]);
 
   const cinemaClusters = useMemo(() => {
     const cinemaSystems = showtimeDetail?.heThongRapChieu || [];

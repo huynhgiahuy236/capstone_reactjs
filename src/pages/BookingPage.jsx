@@ -282,15 +282,12 @@ const BookingPage = () => {
   const handleToggleSeat = (seat) => {
     if (seat.daDat) return;
 
-    const isSelected = selectedSeats.some((item) => item.maGhe === seat.maGhe);
-    if (isSelected) {
-      setSelectedSeats(
-        selectedSeats.filter((item) => item.maGhe !== seat.maGhe),
-      );
-      return;
-    }
-
-    setSelectedSeats([...selectedSeats, seat]);
+    setSelectedSeats((currentSeats) => {
+      const isSelected = currentSeats.some((item) => item.maGhe === seat.maGhe);
+      return isSelected
+        ? currentSeats.filter((item) => item.maGhe !== seat.maGhe)
+        : [...currentSeats, seat];
+    });
   };
 
   const handleBookTickets = async () => {
@@ -341,7 +338,6 @@ const BookingPage = () => {
       });
       setSelectedSeats([]);
     } catch (error) {
-      console.log(error);
       notify({
         type: "error",
         title: "Đặt vé thất bại",
@@ -734,6 +730,8 @@ const BookingPage = () => {
                                   key={seat.maGhe}
                                   type="button"
                                   disabled={seat.daDat}
+                                  aria-label={`Ghế ${seatPosition.label}, ${seat.daDat ? "đã được đặt" : isSelected ? "đang chọn" : "còn trống"}, giá ${formatMoney(seat.giaVe)} VND`}
+                                  aria-pressed={isSelected}
                                   onClick={() =>
                                     handleToggleSeat(seatWithDisplayName)
                                   }
@@ -802,6 +800,7 @@ const BookingPage = () => {
                       <td className="py-2 px-3 text-center">
                         <button
                           type="button"
+                          aria-label={`Bỏ chọn ghế ${seat.displaySeatName || seat.tenGhe}`}
                           onClick={() => handleToggleSeat(seat)}
                           className="cursor-pointer text-red-500 font-bold text-base leading-none"
                         >

@@ -1,5 +1,5 @@
 import { useFormik } from 'formik'
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import * as Yup from 'yup'
 import { authApi } from '../api/authApi'
@@ -20,6 +20,10 @@ const LoginPage = () => {
     const navigate = useNavigate()
     const location = useLocation()
     const registeredAccount = location.state?.registeredAccount
+    const searchParams = new URLSearchParams(location.search)
+    const requestedPath = location.state?.from
+        ? `${location.state.from.pathname}${location.state.from.search || ''}${location.state.from.hash || ''}`
+        : searchParams.get('from')
 
     // hàm xử lý submit form
     const formik = useFormik({
@@ -39,9 +43,8 @@ const LoginPage = () => {
                 // dispatch
                 dispatch(login(response.data.content))
 
-                navigate("/") // điều hướng về trang chủ sau khi đăng nhập thành công
+                navigate(requestedPath || "/", { replace: true })
             } catch (error) {
-                console.log(error)
                 setApiError(error.response?.data?.content)
             }
         }
@@ -61,9 +64,9 @@ const LoginPage = () => {
                         <h2 className="text-white text-2xl font-bold mb-6">Đăng nhập</h2>
                         <form onSubmit={formik.handleSubmit}>
 
-                            {location.state?.registerSuccess && (
+                            {(location.state?.registerSuccess || searchParams.get('sessionExpired') === '1') && (
                                 <div className="bg-green-500/15 border border-green-500/40 text-green-100 text-sm font-medium px-4 py-3 rounded mb-4">
-                                    {location.state.registerSuccess}
+                                    {location.state?.registerSuccess || 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'}
                                 </div>
                             )}
 
@@ -76,10 +79,12 @@ const LoginPage = () => {
                             }
                             {/* Tài khoản Field */}
                             <div className="mb-5">
-                                <label className="block text-gray-300 text-sm font-medium mb-2">Tài khoản</label>
+                                <label htmlFor="taiKhoan" className="block text-gray-300 text-sm font-medium mb-2">Tài khoản</label>
                                 {/* State: normal */}
                                 <input
                                     type="text"
+                                    id="taiKhoan"
+                                    autoComplete="username"
                                     {...formik.getFieldProps("taiKhoan")}
                                     placeholder="Nhập tài khoản"
                                     className="w-full bg-gray-700 text-white placeholder-gray-400 border border-gray-600 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-400 transition-all"
@@ -94,9 +99,11 @@ const LoginPage = () => {
                             </div>
                             {/* Password Field */}
                             <div className="mb-6">
-                                <label className="block text-gray-300 text-sm font-medium mb-2">Mật khẩu</label>
+                                <label htmlFor="matKhau" className="block text-gray-300 text-sm font-medium mb-2">Mật khẩu</label>
                                 <input
                                     type="password"
+                                    id="matKhau"
+                                    autoComplete="current-password"
                                     {...formik.getFieldProps("matKhau")}
                                     placeholder="••••••••"
                                     className="w-full bg-gray-700 text-white placeholder-gray-400 border border-gray-600 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-400 transition-all"
@@ -107,8 +114,8 @@ const LoginPage = () => {
                                 
                             </div>
                             {/* Submit Button: State normal */}
-                            <button type="submit" className="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
-                                Đăng nhập
+                            <button type="submit" disabled={formik.isSubmitting} className="w-full bg-yellow-400 hover:bg-yellow-500 disabled:cursor-not-allowed disabled:bg-yellow-700 text-gray-900 font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2">
+                                {formik.isSubmitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
                             </button>
                             {/* Submit Button: State loading */}
                             {/*

@@ -28,7 +28,7 @@ const registerSchema = Yup.object().shape({
     .trim()
     .min(2, 'Họ tên phải có ít nhất 2 ký tự')
     .max(50, 'Họ tên không được quá 50 ký tự')
-    .matches(/^[\p{L}\p{M}]+(?:[ '\-][\p{L}\p{M}]+)*$/u, 'Họ tên chỉ được chứa chữ cái')
+    .matches(/^[\p{L}\p{M}]+(?:[ '-][\p{L}\p{M}]+)*$/u, 'Họ tên chỉ được chứa chữ cái')
     .required('Họ tên không được để trống'),
   email: Yup.string()
     .trim()

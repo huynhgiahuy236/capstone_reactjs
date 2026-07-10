@@ -119,7 +119,6 @@ const UserPage = () => {
         setIsModalOpen(false)
         notify({ type: 'success', title: editingUser ? 'Cập nhật thành công' : 'Thêm người dùng thành công', message: userData.taiKhoan })
       } catch (error) {
-        console.log(error)
         notify({ type: 'error', title: 'Lưu người dùng thất bại', message: error.response?.data?.content || 'Lưu người dùng thất bại' })
       }
     }
@@ -183,7 +182,6 @@ const UserPage = () => {
       await deleteUser.mutateAsync(taiKhoan)
       notify({ type: 'success', title: 'Xóa người dùng thành công', message: taiKhoan })
     } catch (error) {
-      console.log(error)
       notify({ type: 'error', title: 'Xóa người dùng thất bại', message: error.response?.data?.content || 'Xóa người dùng thất bại' })
     }
   }
