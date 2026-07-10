@@ -78,28 +78,6 @@ const formatApiDateTime = (dateValue, timeValue) => {
   return `${day}/${month}/${year} ${timeValue}:00`;
 };
 
-const formatInputDateTime = (dateValue) => {
-  const date = new Date(dateValue);
-
-  if (!dateValue || Number.isNaN(date.getTime())) {
-    return {
-      ngayChieu: "",
-      gioChieu: "",
-    };
-  }
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hour = String(date.getHours()).padStart(2, "0");
-  const minute = String(date.getMinutes()).padStart(2, "0");
-
-  return {
-    ngayChieu: `${year}-${month}-${day}`,
-    gioChieu: `${hour}:${minute}`,
-  };
-};
-
 const scrollPageTop = () => {
   document.querySelector("main")?.scrollTo({ top: 0, behavior: "smooth" });
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -350,22 +328,6 @@ const ShowtimePage = () => {
     formik.setValues({
       ...initialShowtimeValues,
       maPhim: activeMovieId.toString(),
-    });
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (system, cluster, showtime) => {
-    const inputDateTime = formatInputDateTime(showtime.ngayChieuGioChieu);
-
-    setEditingShowtime(showtime);
-    formik.setValues({
-      maPhim: maPhim || "",
-      maHeThongRap: system.maHeThongRap || "",
-      maCumRap: cluster.maCumRap || "",
-      maRap: showtime.maRap?.toString() || "",
-      ngayChieu: inputDateTime.ngayChieu,
-      gioChieu: inputDateTime.gioChieu,
-      giaVe: showtime.giaVe || 75000,
     });
     setIsModalOpen(true);
   };
@@ -769,27 +731,25 @@ const ShowtimePage = () => {
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() =>
-                            openEditModal(
-                              selectedCluster.system,
-                              selectedCluster.cluster,
-                              showtime,
-                            )
-                          }
-                          className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                          disabled
+                          title="Chức năng sửa lịch chiếu chưa phát triển"
+                          className="cursor-not-allowed bg-gray-700 text-gray-400 text-xs font-medium px-3 py-1.5 rounded-lg"
                         >
                           Sửa
                         </button>
                         <button
                           type="button"
                           disabled
-                          title="API hiện tại chưa hỗ trợ xóa lịch chiếu"
+                          title="Chức năng xóa lịch chiếu chưa phát triển"
                           className="cursor-not-allowed bg-gray-700 text-gray-400 text-xs font-medium px-3 py-1.5 rounded-lg"
                         >
                           Xóa
                         </button>
                       </div>
                     </div>
+                    <p className="mt-3 text-right text-xs text-gray-500">
+                      Sửa/Xóa: Chưa phát triển
+                    </p>
                   </div>
                 ))}
               </div>
