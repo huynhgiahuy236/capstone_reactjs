@@ -87,7 +87,7 @@ const BookingPage = () => {
   const [selectedScheduleDate, setSelectedScheduleDate] = useState("");
   const [scheduleStartOffset, setScheduleStartOffset] = useState(0);
   const [selectedSeats, setSelectedSeats] = useState([]);
-  const { notify } = useAdminFeedback();
+  const { notify, confirm } = useAdminFeedback();
 
   const { data: movie, isLoading: isMovieLoading } = useMovieDetail(maPhim);
   const {
@@ -311,6 +311,19 @@ const BookingPage = () => {
       });
       return;
     }
+
+    const seatNames = selectedSeats
+      .map((seat) => seat.displaySeatName || seat.tenGhe)
+      .join(", ");
+    const accepted = await confirm({
+      title: "Xác nhận đặt vé",
+      message: `${movieInfo?.tenPhim || movie?.tenPhim || "Phim đã chọn"} · ${selectedShowtime?.tenCumRap || "Rạp đã chọn"} · ${formatScheduleTime(selectedShowtime?.ngayChieuGioChieu)} · Ghế ${seatNames} · ${formatMoney(totalPrice)} VND`,
+      confirmText: "Xác nhận đặt vé",
+      cancelText: "Kiểm tra lại",
+      tone: "warning",
+    });
+
+    if (!accepted) return;
 
     try {
       await bookTickets.mutateAsync({

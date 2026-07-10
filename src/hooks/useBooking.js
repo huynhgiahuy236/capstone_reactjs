@@ -32,6 +32,7 @@ export const useBookTickets = () => {
         mutationFn: (bookingData) => bookingApi.bookTickets(bookingData),
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['ticketRoom', variables.maLichChieu?.toString()] })
+            queryClient.invalidateQueries({ queryKey: ['profile'] })
         }
     })
 }
