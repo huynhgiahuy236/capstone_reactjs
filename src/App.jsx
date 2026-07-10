@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom"
 import LoginPage from "./pages/LoginPage"
+import RegisterPage from "./pages/RegisterPage"
 import HomeLayout from "./Layout/HomeLayout"
 import MovieListPage from "./pages/MovieListPage"
 import MovieDetailPage from "./pages/MovieDetailPage"
@@ -42,6 +43,7 @@ function App() {
           <ScrollToTop />
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
             <Route path="/" element={<HomeLayout />}>
               <Route index element={<MovieListPage />} />
               <Route path="movie" element={<MovieListPage />} />
