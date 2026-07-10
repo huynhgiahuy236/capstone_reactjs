@@ -9,7 +9,7 @@ const ProtectedAdminRoute = ({children}) => {
     const user = useSelector(selectorUser)
     
     // nếu chưa đăng nhập, chuyển hướng về trang login
-    if (!isLoggedIn) {
+    if (!isLoggedIn || !user?.accessToken) {
         return <Navigate to="/login" replace />
     }
 
