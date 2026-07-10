@@ -23,8 +23,8 @@ const LoginPage = () => {
     const formik = useFormik({
         // giá trị ban đầu của form
         initialValues: {
-            taiKhoan: "",
-            matKhau: ""
+            taiKhoan: "adminGiang",
+            matKhau: "123456"
         },
         // validation schema để validate form
         validationSchema: loginSchema,
@@ -52,7 +52,7 @@ const LoginPage = () => {
                     {/* Logo */}
                     <div className="text-center mb-8">
                         <a href="/" className="text-3xl font-bold text-yellow-400">🎬 MovieApp</a>
-                        <p className="text-gray-400 mt-2">Đăng nhập để tiếp tục</p>
+                        <p className="text-gray-400 mt-2">Tài khoản admin demo đã được điền sẵn, chỉ cần nhấn Enter</p>
                     </div>
                     {/* Form Card */}
                     <div className="bg-gray-800 rounded-2xl shadow-2xl p-8">
