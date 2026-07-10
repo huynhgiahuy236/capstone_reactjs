@@ -1,28 +1,55 @@
+import { useCallback } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { bookingApi } from "../api/bookingApi"
+
+const TICKET_ROOM_STALE_TIME = 20 * 1000
+
+const getTicketRoomQueryOptions = (maLichChieu) => ({
+    queryKey: ['ticketRoom', maLichChieu?.toString()],
+    queryFn: async () => {
+        const response = await bookingApi.getTicketRoom(maLichChieu)
+        return response.data.content
+    },
+    staleTime: TICKET_ROOM_STALE_TIME
+})
 
 export const useCreateShowtime = () => {
     const queryClient = useQueryClient()
 
     return useMutation({
         mutationFn: (showtimeData) => bookingApi.createShowtime(showtimeData),
-        onSuccess: (_, variables) => {
-            queryClient.invalidateQueries({ queryKey: ['movieList'] })
-            queryClient.invalidateQueries({ queryKey: ['heThongRap'] })
-            queryClient.invalidateQueries({ queryKey: ['lichChieuPhim', variables.maPhim?.toString()] })
+        onSuccess: async (_, variables) => {
+            const movieId = variables.maPhim?.toString()
+
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['movieList'] }),
+                queryClient.invalidateQueries({ queryKey: ['heThongRap'] }),
+                queryClient.invalidateQueries({
+                    queryKey: ['lichChieuPhim', movieId],
+                    refetchType: 'all'
+                })
+            ])
         }
     })
 }
 
 export const useTicketRoom = (maLichChieu) => {
     return useQuery({
-        queryKey: ['ticketRoom', maLichChieu],
-        queryFn: async () => {
-            const response = await bookingApi.getTicketRoom(maLichChieu)
-            return response.data.content
-        },
+        ...getTicketRoomQueryOptions(maLichChieu),
         enabled: maLichChieu !== undefined && maLichChieu !== null && maLichChieu !== ""
     })
+}
+
+export const usePrefetchTicketRoom = () => {
+    const queryClient = useQueryClient()
+
+    return useCallback((maLichChieu) => {
+        if (maLichChieu === undefined || maLichChieu === null || maLichChieu === "") {
+            return Promise.resolve()
+        }
+
+        return queryClient.prefetchQuery(getTicketRoomQueryOptions(maLichChieu))
+    }, [queryClient])
 }
 
 export const useBookTickets = () => {

@@ -1,8 +1,12 @@
-import { useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { useAdminFeedback } from "../hooks/useAdminFeedback";
-import { useBookTickets, useTicketRoom } from "../hooks/useBooking";
+import {
+  useBookTickets,
+  usePrefetchTicketRoom,
+  useTicketRoom,
+} from "../hooks/useBooking";
 import { useLichChieuPhim } from "../hooks/useCinema";
 import { useMovieDetail } from "../hooks/useMovies";
 
@@ -81,6 +85,36 @@ const getSeatPosition = (seatIndex) => {
   };
 };
 
+const SeatButton = memo(({ seat, seatIndex, isSelected, onToggle }) => {
+  const seatPosition = getSeatPosition(seatIndex);
+  let seatClass = "border-orange-500 text-white hover:bg-orange-500/20";
+
+  if (seat.daDat) {
+    seatClass = "bg-orange-500 border-orange-500 text-gray-900 cursor-not-allowed";
+  } else if (isSelected) {
+    seatClass = "bg-green-400 border-green-400 text-gray-900";
+  }
+
+  const handleClick = () => {
+    onToggle({ ...seat, displaySeatName: seatPosition.label });
+  };
+
+  return (
+    <button
+      type="button"
+      disabled={seat.daDat}
+      aria-label={`Ghế ${seatPosition.label}, ${seat.daDat ? "đã được đặt" : isSelected ? "đang chọn" : "còn trống"}, giá ${formatMoney(seat.giaVe)} VND`}
+      aria-pressed={isSelected}
+      onClick={handleClick}
+      className={`aspect-[5/4] w-full rounded border-2 text-xs font-bold transition-all duration-200 ${seat.daDat ? "cursor-not-allowed" : "cursor-pointer"} ${seatClass}`}
+    >
+      {seatPosition.label}
+    </button>
+  );
+});
+
+SeatButton.displayName = "SeatButton";
+
 const BookingPage = () => {
   const { maPhim } = useParams();
   const [manualSelectedShowtimeId, setManualSelectedShowtimeId] = useState("");
@@ -97,6 +131,7 @@ const BookingPage = () => {
     error: showtimeError,
   } = useLichChieuPhim(maPhim);
   const bookTickets = useBookTickets();
+  const prefetchTicketRoom = usePrefetchTicketRoom();
 
   const showtimes = useMemo(() => {
     const systems = showtimeDetail?.heThongRapChieu || [];
@@ -210,6 +245,7 @@ const BookingPage = () => {
 
   const {
     data: ticketRoom,
+    isLoading: isTicketRoomLoading,
     isFetching: isTicketRoomFetching,
     isError: isTicketRoomError,
     error: ticketRoomError,
@@ -223,6 +259,10 @@ const BookingPage = () => {
     ),
   )?.key;
   const seats = useMemo(() => ticketRoom?.danhSachGhe || [], [ticketRoom]);
+  const selectedSeatIds = useMemo(
+    () => new Set(selectedSeats.map((seat) => seat.maGhe)),
+    [selectedSeats],
+  );
   const seatRows = useMemo(() => {
     return Array.from(
       { length: Math.ceil(seats.length / SEAT_COLUMN_COUNT) },
@@ -279,7 +319,7 @@ const BookingPage = () => {
     handleSelectScheduleDate(nextDate.key);
   };
 
-  const handleToggleSeat = (seat) => {
+  const handleToggleSeat = useCallback((seat) => {
     if (seat.daDat) return;
 
     setSelectedSeats((currentSeats) => {
@@ -288,7 +328,7 @@ const BookingPage = () => {
         ? currentSeats.filter((item) => item.maGhe !== seat.maGhe)
         : [...currentSeats, seat];
     });
-  };
+  }, []);
 
   const handleBookTickets = async () => {
     if (!selectedShowtimeId) {
@@ -565,6 +605,12 @@ const BookingPage = () => {
                                 <button
                                   key={showtime.maLichChieu}
                                   type="button"
+                                  onMouseEnter={() =>
+                                    prefetchTicketRoom(showtime.maLichChieu)
+                                  }
+                                  onFocus={() =>
+                                    prefetchTicketRoom(showtime.maLichChieu)
+                                  }
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     handleSelectShowtime(showtime.maLichChieu);
@@ -612,7 +658,7 @@ const BookingPage = () => {
               </div>
             )}
 
-            {selectedShowtimeId && isTicketRoomFetching && (
+            {selectedShowtimeId && isTicketRoomLoading && (
               <div className="text-center py-16">
                 <LoadingSpinner />
                 <p className="text-gray-400 mt-4">
@@ -622,7 +668,7 @@ const BookingPage = () => {
             )}
 
             {selectedShowtimeId &&
-              !isTicketRoomFetching &&
+              !isTicketRoomLoading &&
               isTicketRoomError && (
                 <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl px-5 py-4">
                   <p className="font-medium">Không thể tải phòng vé</p>
@@ -634,7 +680,7 @@ const BookingPage = () => {
               )}
 
             {selectedShowtimeId &&
-              !isTicketRoomFetching &&
+              !isTicketRoomLoading &&
               !isTicketRoomError &&
               seats.length > 0 && (
                 <div
@@ -704,41 +750,14 @@ const BookingPage = () => {
                                 );
                               }
 
-                              const seatPosition = getSeatPosition(
-                                row.startIndex + columnIndex,
-                              );
-                              const seatWithDisplayName = {
-                                ...seat,
-                                displaySeatName: seatPosition.label,
-                              };
-                              const isSelected = selectedSeats.some(
-                                (item) => item.maGhe === seat.maGhe,
-                              );
-                              let seatClass =
-                                "border-orange-500 text-white hover:bg-orange-500/20";
-
-                              if (seat.daDat) {
-                                seatClass =
-                                  "bg-orange-500 border-orange-500 text-gray-900 cursor-not-allowed";
-                              } else if (isSelected) {
-                                seatClass =
-                                  "bg-green-400 border-green-400 text-gray-900";
-                              }
-
                               return (
-                                <button
+                                <SeatButton
                                   key={seat.maGhe}
-                                  type="button"
-                                  disabled={seat.daDat}
-                                  aria-label={`Ghế ${seatPosition.label}, ${seat.daDat ? "đã được đặt" : isSelected ? "đang chọn" : "còn trống"}, giá ${formatMoney(seat.giaVe)} VND`}
-                                  aria-pressed={isSelected}
-                                  onClick={() =>
-                                    handleToggleSeat(seatWithDisplayName)
-                                  }
-                                  className={`aspect-[5/4] w-full rounded border-2 text-xs font-bold transition-all duration-200 ${seat.daDat ? "cursor-not-allowed" : "cursor-pointer"} ${seatClass}`}
-                                >
-                                  {seatPosition.label}
-                                </button>
+                                  seat={seat}
+                                  seatIndex={row.startIndex + columnIndex}
+                                  isSelected={selectedSeatIds.has(seat.maGhe)}
+                                  onToggle={handleToggleSeat}
+                                />
                               );
                             },
                           )}
@@ -747,6 +766,26 @@ const BookingPage = () => {
                     </div>
                   </div>
                 </div>
+              )}
+
+            {selectedShowtimeId &&
+              !isTicketRoomLoading &&
+              !isTicketRoomError &&
+              seats.length === 0 && (
+                <div className="py-16 text-center text-gray-400">
+                  Suất chiếu này chưa có dữ liệu ghế.
+                </div>
+              )}
+
+            {selectedShowtimeId &&
+              !isTicketRoomLoading &&
+              isTicketRoomFetching && (
+                <p
+                  className="mt-3 text-center text-xs text-gray-500"
+                  aria-live="polite"
+                >
+                  Đang đồng bộ trạng thái ghế...
+                </p>
               )}
           </section>
 

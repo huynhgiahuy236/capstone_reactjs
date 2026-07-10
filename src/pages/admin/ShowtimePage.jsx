@@ -1,5 +1,5 @@
 import { useFormik } from "formik";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import * as Yup from "yup";
@@ -132,7 +132,8 @@ const ShowtimePage = () => {
         }
 
         const selectedCinemaCluster = cumRap?.find(
-          (item) => item.maCumRap === values.maCumRap,
+          (item) =>
+            item.maCumRap?.toString() === values.maCumRap?.toString(),
         );
         const selectedCinema = selectedCinemaCluster?.danhSachRap?.find(
           (rap) => rap.maRap?.toString() === values.maRap?.toString(),
@@ -174,7 +175,9 @@ const ShowtimePage = () => {
             values.ngayChieu,
             values.gioChieu,
           ),
-          maRap: selectedCinema.maRap.toString(),
+          // API TaoLichChieu đặt tên trường là maRap nhưng backend hiện tại
+          // kiểm tra mã cụm rạp (ví dụ: "cns-hai-ba-trung").
+          maRap: selectedCinemaCluster.maCumRap,
           giaVe: Number(values.giaVe),
         };
 
@@ -228,8 +231,10 @@ const ShowtimePage = () => {
     },
   });
 
-  const { data: cumRap, isLoading: isCinemaClusterLoading } =
-    useCumRapTheoHeThong(formik.values.maHeThongRap);
+  const {
+    data: cumRap,
+    isFetching: isCinemaClusterFetching,
+  } = useCumRapTheoHeThong(formik.values.maHeThongRap);
   const debouncedSearchTerm = useDebouncedValue(searchTerm, 2000);
   const isSearching = searchTerm !== debouncedSearchTerm;
 
@@ -266,30 +271,10 @@ const ShowtimePage = () => {
   }, [filteredMovies, safeMoviePage]);
 
   const selectedCumRap = cumRap?.find(
-    (item) => item.maCumRap === formik.values.maCumRap,
+    (item) => item.maCumRap?.toString() === formik.values.maCumRap?.toString(),
   );
 
   const danhSachRap = selectedCumRap?.danhSachRap || [];
-
-  useEffect(() => {
-    if (!selectedCumRap || !formik.values.maRap) {
-      return;
-    }
-
-    const currentRap = selectedCumRap.danhSachRap?.find(
-      (rap) => rap.maRap?.toString() === formik.values.maRap?.toString(),
-    );
-
-    if (currentRap) {
-      return;
-    }
-
-    const matchedRap = selectedCumRap.danhSachRap?.find(
-      (rap) => rap.tenRap === editingShowtime?.tenRap,
-    );
-
-    formik.setFieldValue("maRap", matchedRap?.maRap?.toString() || "");
-  }, [selectedCumRap, editingShowtime, formik]);
 
   const cinemaClusters = useMemo(() => {
     const cinemaSystems = showtimeDetail?.heThongRapChieu || [];
@@ -339,6 +324,27 @@ const ShowtimePage = () => {
 
   const closeSchedulePopup = () => {
     setSelectedCluster(null);
+  };
+
+  const handleCinemaSystemChange = (event) => {
+    const maHeThongRapMoi = event.target.value;
+
+    formik.setValues((currentValues) => ({
+      ...currentValues,
+      maHeThongRap: maHeThongRapMoi,
+      maCumRap: "",
+      maRap: "",
+    }));
+  };
+
+  const handleCinemaClusterChange = (event) => {
+    const maCumRapMoi = event.target.value;
+
+    formik.setValues((currentValues) => ({
+      ...currentValues,
+      maCumRap: maCumRapMoi,
+      maRap: "",
+    }));
   };
 
   const changeMoviePage = (page) => {
@@ -815,11 +821,7 @@ const ShowtimePage = () => {
                     name="maHeThongRap"
                     value={formik.values.maHeThongRap}
                     onBlur={formik.handleBlur}
-                    onChange={(event) => {
-                      formik.setFieldValue("maHeThongRap", event.target.value);
-                      formik.setFieldValue("maCumRap", "");
-                      formik.setFieldValue("maRap", "");
-                    }}
+                    onChange={handleCinemaSystemChange}
                     className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-yellow-400 text-sm"
                   >
                     <option value="">Chọn hệ thống rạp</option>
@@ -847,17 +849,14 @@ const ShowtimePage = () => {
                     name="maCumRap"
                     value={formik.values.maCumRap}
                     onBlur={formik.handleBlur}
-                    onChange={(event) => {
-                      formik.setFieldValue("maCumRap", event.target.value);
-                      formik.setFieldValue("maRap", "");
-                    }}
+                    onChange={handleCinemaClusterChange}
                     disabled={
-                      !formik.values.maHeThongRap || isCinemaClusterLoading
+                      !formik.values.maHeThongRap || isCinemaClusterFetching
                     }
                     className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-yellow-400 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <option value="">
-                      {isCinemaClusterLoading
+                      {isCinemaClusterFetching
                         ? "Đang tải cụm rạp..."
                         : "Chọn cụm rạp"}
                     </option>
@@ -881,14 +880,14 @@ const ShowtimePage = () => {
                   <select
                     {...formik.getFieldProps("maRap")}
                     disabled={
-                      !formik.values.maCumRap || isCinemaClusterLoading
+                      !formik.values.maCumRap || isCinemaClusterFetching
                     }
                     className="w-full bg-gray-800 text-white border border-gray-700 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-yellow-400 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <option value="">Chọn rạp</option>
                     {danhSachRap.map((rap) => (
                       <option key={rap.maRap} value={rap.maRap}>
-                        {rap.tenRap}
+                        {rap.tenRap} - #{rap.maRap}
                       </option>
                     ))}
                   </select>
@@ -967,7 +966,13 @@ const ShowtimePage = () => {
                   disabled={
                     !formik.isValid ||
                     createShowtime.isPending ||
-                    isCinemaClusterLoading
+                    isCinemaClusterFetching ||
+                    !selectedCumRap ||
+                    !danhSachRap.some(
+                      (rap) =>
+                        rap.maRap?.toString() ===
+                        formik.values.maRap?.toString(),
+                    )
                   }
                   className="bg-yellow-400 hover:bg-yellow-500 disabled:bg-yellow-700 text-gray-900 font-bold px-5 py-2.5 rounded-xl text-sm transition-colors"
                 >

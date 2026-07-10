@@ -30,6 +30,7 @@ export const useLichChieuPhim = (maPhim) => {
             const response = await cinemaApi.getLichChieuPhim(maPhim)
             return response.data.content
         },
-        enabled: maPhim !== undefined && maPhim !== null && maPhim !== ""
+        enabled: maPhim !== undefined && maPhim !== null && maPhim !== "",
+        staleTime: 0
     })
 }
