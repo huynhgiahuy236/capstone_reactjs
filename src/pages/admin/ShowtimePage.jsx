@@ -1,9 +1,10 @@
 import { useFormik } from "formik";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSelector } from "react-redux";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import * as Yup from "yup";
 import LoadingSpinner from "../../components/LoadingSpinner";
-import { useCreateShowtime, useDeleteShowtime } from "../../hooks/useBooking";
+import { useCreateShowtime } from "../../hooks/useBooking";
 import {
   useCumRapTheoHeThong,
   useHeThongRap,
@@ -11,7 +12,8 @@ import {
 } from "../../hooks/useCinema";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { useAdminFeedback } from "../../hooks/useAdminFeedback";
-import { useMovieList } from "../../hooks/useMovies";
+import { useMovieDetail, useMovieList } from "../../hooks/useMovies";
+import { selectorUser } from "../../store/authSlice";
 
 const showtimeSchema = Yup.object().shape({
   maPhim: Yup.string().required("Phim không được để trống"),
@@ -111,18 +113,19 @@ const ShowtimePage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingShowtime, setEditingShowtime] = useState(null);
   const [selectedCluster, setSelectedCluster] = useState(null);
-  const { notify, confirm } = useAdminFeedback();
+  const { notify } = useAdminFeedback();
+  const currentUser = useSelector(selectorUser);
+  const adminMovieGroup = currentUser?.maNhom || "GP01";
 
   const {
     data: movies,
     isLoading: isMovieLoading,
     isError: isMovieError,
     error: movieError,
-  } = useMovieList("GP01");
+  } = useMovieList(adminMovieGroup);
   const { data: heThongRap, isLoading: isCinemaSystemLoading } =
     useHeThongRap();
   const createShowtime = useCreateShowtime();
-  const deleteShowtime = useDeleteShowtime();
 
   const {
     data: showtimeDetail,
@@ -130,12 +133,26 @@ const ShowtimePage = () => {
     isError: isShowtimeError,
     error: showtimeError,
   } = useLichChieuPhim(maPhim);
+  const {
+    data: movieDetail,
+    isLoading: isMovieDetailLoading,
+  } = useMovieDetail(maPhim);
 
   const formik = useFormik({
     initialValues: initialShowtimeValues,
     validationSchema: showtimeSchema,
     onSubmit: async (values, { resetForm }) => {
       try {
+        if (!currentUser?.accessToken) {
+          notify({
+            type: "warning",
+            title: "Cần đăng nhập lại",
+            message:
+              "Phiên admin hiện tại không có token hợp lệ. Bạn đăng xuất rồi đăng nhập lại bằng tài khoản quản trị.",
+          });
+          return;
+        }
+
         const selectedCinemaCluster = cumRap?.find(
           (item) => item.maCumRap === values.maCumRap,
         );
@@ -163,13 +180,23 @@ const ShowtimePage = () => {
           return;
         }
 
+        if (!Number.isInteger(activeMovieId) || activeMovieId <= 0) {
+          notify({
+            type: "warning",
+            title: "Mã phim không hợp lệ",
+            message:
+              "Bạn quay lại danh sách lịch chiếu rồi chọn lại phim trước khi thêm lịch chiếu.",
+          });
+          return;
+        }
+
         const showtimeData = {
-          maPhim: Number(values.maPhim),
+          maPhim: activeMovieId,
           ngayChieuGioChieu: formatApiDateTime(
             values.ngayChieu,
             values.gioChieu,
           ),
-          maRap: values.maRap.toString(),
+          maRap: selectedCinema.maRap.toString(),
           giaVe: Number(values.giaVe),
         };
 
@@ -186,11 +213,34 @@ const ShowtimePage = () => {
         setIsModalOpen(false);
       } catch (error) {
         console.log(error);
+        if (error.response?.status === 401) {
+          notify({
+            type: "error",
+            title: "Phiên đăng nhập không hợp lệ",
+            message:
+              "Backend từ chối quyền tạo lịch chiếu. Bạn đăng xuất rồi đăng nhập lại bằng tài khoản quản trị.",
+          });
+          return;
+        }
+
         const apiMessage =
           error.response?.data?.content ||
           error.response?.data?.message ||
           error.message ||
           "Không thể tạo lịch chiếu. Bạn kiểm tra lại thông tin vừa nhập.";
+
+        if (
+          error.response?.status === 404 &&
+          apiMessage.toLowerCase().includes("mã phim")
+        ) {
+          notify({
+            type: "error",
+            title: "Mã phim không hợp lệ",
+            message:
+              "Backend không nhận mã phim hiện tại. Bạn quay lại danh sách lịch chiếu, chọn lại phim rồi thêm lịch chiếu.",
+          });
+          return;
+        }
 
         notify({
           type: "error",
@@ -243,6 +293,27 @@ const ShowtimePage = () => {
   }, [cumRap, formik.values.maCumRap]);
 
   const danhSachRap = selectedCumRap?.danhSachRap || [];
+
+  useEffect(() => {
+    if (!selectedCumRap || !formik.values.maRap) {
+      return;
+    }
+
+    const currentRap = selectedCumRap.danhSachRap?.find(
+      (rap) => rap.maRap?.toString() === formik.values.maRap?.toString(),
+    );
+
+    if (currentRap) {
+      return;
+    }
+
+    const matchedRap = selectedCumRap.danhSachRap?.find(
+      (rap) => rap.tenRap === editingShowtime?.tenRap,
+    );
+
+    formik.setFieldValue("maRap", matchedRap?.maRap?.toString() || "");
+  }, [selectedCumRap, editingShowtime, formik.values.maRap]);
+
   const cinemaClusters = useMemo(() => {
     const cinemaSystems = showtimeDetail?.heThongRapChieu || [];
 
@@ -261,12 +332,24 @@ const ShowtimePage = () => {
     (total, item) => total + item.totalShowtimes,
     0,
   );
+  const movieInfo = showtimeDetail || movieDetail || selectedMovie;
+  const activeMovieId = Number(movieInfo?.maPhim || maPhim);
 
   const openAddModal = () => {
+    if (!Number.isInteger(activeMovieId) || activeMovieId <= 0 || !movieInfo) {
+      notify({
+        type: "warning",
+        title: "Chưa lấy được phim",
+        message:
+          "Bạn quay lại danh sách lịch chiếu rồi chọn lại phim trước khi thêm lịch chiếu.",
+      });
+      return;
+    }
+
     setEditingShowtime(null);
     formik.setValues({
       ...initialShowtimeValues,
-      maPhim: maPhim || "",
+      maPhim: activeMovieId.toString(),
     });
     setIsModalOpen(true);
   };
@@ -297,43 +380,6 @@ const ShowtimePage = () => {
     setSelectedCluster(null);
   };
 
-  const handleDeleteShowtime = async (showtime) => {
-    const isConfirmed = await confirm({
-      title: "Xóa lịch chiếu",
-      message: `Bạn có chắc muốn xóa lịch chiếu #${showtime.maLichChieu}?`,
-      confirmText: "Xóa lịch chiếu",
-      cancelText: "Hủy",
-      tone: "danger",
-    });
-
-    if (!isConfirmed) {
-      return;
-    }
-
-    try {
-      await deleteShowtime.mutateAsync({
-        maLichChieu: showtime.maLichChieu,
-        maPhim,
-      });
-      notify({
-        type: "success",
-        title: "Xóa lịch chiếu thành công",
-        message: `Mã lịch chiếu #${showtime.maLichChieu}`,
-      });
-    } catch (error) {
-      console.log(error);
-      notify({
-        type: "error",
-        title: "Xóa lịch chiếu thất bại",
-        message:
-          error.response?.data?.content ||
-          error.response?.data?.message ||
-          error.message ||
-          "Không thể xóa lịch chiếu",
-      });
-    }
-  };
-
   const changeMoviePage = (page) => {
     setCurrentMoviePage(page);
     scrollPageTop();
@@ -343,10 +389,9 @@ const ShowtimePage = () => {
   const isLoading =
     isMovieLoading ||
     (isDetailPage && isShowtimeLoading) ||
+    (isDetailPage && isMovieDetailLoading) ||
     (isModalOpen && isCinemaSystemLoading) ||
-    createShowtime.isPending ||
-    deleteShowtime.isPending;
-  const movieInfo = showtimeDetail || selectedMovie;
+    createShowtime.isPending;
 
   return (
     <div>
@@ -737,8 +782,9 @@ const ShowtimePage = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDeleteShowtime(showtime)}
-                          className="cursor-pointer bg-red-600 hover:bg-red-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+                          disabled
+                          title="API hiện tại chưa hỗ trợ xóa lịch chiếu"
+                          className="cursor-not-allowed bg-gray-700 text-gray-400 text-xs font-medium px-3 py-1.5 rounded-lg"
                         >
                           Xóa
                         </button>
