@@ -1,5 +1,10 @@
 import { Link } from 'react-router-dom'
 
+const formatDate = (dateValue) => {
+  const date = new Date(dateValue)
+  return Number.isNaN(date.getTime()) ? 'Chưa có ngày' : date.toLocaleDateString('vi-VN')
+}
+
 const MovieCard = ({ movie }) => {
   return (
     <div className="bg-gray-800 rounded-xl overflow-hidden shadow-lg hover:shadow-yellow-400/20 hover:scale-105 transition-all duration-300 group">
@@ -19,7 +24,7 @@ const MovieCard = ({ movie }) => {
       </div>
       <div className="p-4">
         <h3 className="text-white font-semibold text-lg mb-1 truncate">{movie.tenPhim}</h3>
-        <p className="text-gray-400 text-sm mb-3">{movie.ngayKhoiChieu}</p>
+        <p className="text-gray-400 text-sm mb-3">{formatDate(movie.ngayKhoiChieu)}</p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <Link
             to={`/movie/${movie.maPhim}`}

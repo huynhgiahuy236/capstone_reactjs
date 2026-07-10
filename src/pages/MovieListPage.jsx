@@ -88,7 +88,7 @@ const MovieListPage = () => {
     const [searchParams] = useSearchParams()
     const location = useLocation()
     const [searchTerm, setSearchTerm] = useState('')
-    const debouncedSearchTerm = useDebouncedValue(searchTerm, 2000)
+    const debouncedSearchTerm = useDebouncedValue(searchTerm, 400)
     const selectedType = searchParams.get('type')
     const { data: movies, isLoading, isError, error } = useMovieList("GP01")
 

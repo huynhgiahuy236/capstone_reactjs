@@ -2,14 +2,33 @@ import { Link, useParams } from 'react-router-dom'
 import { useMovieDetail } from '../hooks/useMovies'
 import LoadingSpinner from '../components/LoadingSpinner'
 
-const getYoutubeId = (trailerUrl = '') => {
-    if (!trailerUrl) return ''
+const getTrailerData = (trailerUrl = '') => {
+    if (!trailerUrl) return { safeUrl: '', youtubeId: '' }
 
-    if (trailerUrl.includes('v=')) {
-        return trailerUrl.split('v=')[1]?.split('&')[0] || ''
+    try {
+        const url = new URL(trailerUrl)
+        if (!['http:', 'https:'].includes(url.protocol)) {
+            return { safeUrl: '', youtubeId: '' }
+        }
+
+        const hostname = url.hostname.replace(/^www\./, '').toLowerCase()
+        let youtubeId = ''
+
+        if (hostname === 'youtu.be') {
+            youtubeId = url.pathname.split('/').filter(Boolean)[0] || ''
+        } else if (['youtube.com', 'm.youtube.com'].includes(hostname)) {
+            youtubeId = url.pathname.startsWith('/embed/')
+                ? url.pathname.split('/')[2] || ''
+                : url.searchParams.get('v') || ''
+        }
+
+        return {
+            safeUrl: url.toString(),
+            youtubeId: /^[A-Za-z0-9_-]{6,20}$/.test(youtubeId) ? youtubeId : '',
+        }
+    } catch {
+        return { safeUrl: '', youtubeId: '' }
     }
-
-    return trailerUrl.split('/').pop() || ''
 }
 
 const formatDate = (dateValue) => {
@@ -24,7 +43,7 @@ const formatDate = (dateValue) => {
 const MovieDetailPage = () => {
     const { maPhim } = useParams()
     const { data: movie, isLoading, isError, error } = useMovieDetail(maPhim)
-    const youtubeId = getYoutubeId(movie?.trailer)
+    const { safeUrl: trailerUrl, youtubeId } = getTrailerData(movie?.trailer)
     const rating = Number(movie?.danhGia || 0)
 
     if (isLoading) {
@@ -114,9 +133,9 @@ const MovieDetailPage = () => {
                             </div>
 
                             <div className="flex flex-wrap gap-3">
-                                {movie?.trailer && (
+                                {trailerUrl && (
                                     <a
-                                        href={movie.trailer}
+                                        href={trailerUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl transition-colors"
@@ -147,6 +166,8 @@ const MovieDetailPage = () => {
                             title="Movie Trailer"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                             allowFullScreen
+                            loading="lazy"
+                            referrerPolicy="strict-origin-when-cross-origin"
                             className="absolute inset-0 w-full h-full"
                         />
                     </div>

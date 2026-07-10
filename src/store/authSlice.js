@@ -1,9 +1,12 @@
 import { createSlice } from "@reduxjs/toolkit"
+import { getStoredUser } from "../utils/authStorage"
+
+const storedUser = getStoredUser()
 
 const initialState = {
     // để hiển thị tên user trên header, thông tin user trong page profile
-    user: JSON.parse(localStorage.getItem("user")) || null,
-    isLoggedIn: localStorage.getItem("user") !== null
+    user: storedUser,
+    isLoggedIn: Boolean(storedUser?.accessToken)
 }
 
 const authSlice = createSlice({

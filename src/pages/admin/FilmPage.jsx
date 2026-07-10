@@ -190,7 +190,6 @@ const FilmPage = () => {
         setIsModalOpen(false)
         notify({ type: 'success', title: editingMovie ? 'Cập nhật thành công' : 'Thêm phim thành công', message: values.tenPhim })
       } catch (error) {
-        console.log(error)
         notify({ type: 'error', title: 'Lưu phim thất bại', message: error.response?.data?.content || error.message || 'Lưu phim thất bại' })
       }
     }
@@ -260,7 +259,6 @@ const FilmPage = () => {
       await deleteMovie.mutateAsync(maPhim)
       notify({ type: 'success', title: 'Xóa phim thành công', message: tenPhim })
     } catch (error) {
-      console.log(error)
       notify({ type: 'error', title: 'Xóa phim thất bại', message: error.response?.data?.content || 'Xóa phim thất bại' })
     }
   }

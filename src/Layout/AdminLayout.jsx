@@ -1,8 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useDispatch } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { AdminFeedbackProvider } from '../components/AdminFeedback'
-import { logout } from '../store/authSlice'
+import { logout, selectorUser } from '../store/authSlice'
 
 const AdminLayout = () => {
     const navLinkClassName = ({ isActive }) => {
@@ -13,9 +13,10 @@ const AdminLayout = () => {
 
     const dispatch = useDispatch()
     const queryClient = useQueryClient()
+    const user = useSelector(selectorUser)
 
     const handleLogout = () => {
-        queryClient.refetchQueries({ queryKey: ['profile'] })
+        queryClient.removeQueries({ queryKey: ['profile'] })
         dispatch(logout())
     }
 
@@ -57,11 +58,11 @@ const AdminLayout = () => {
 
                         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                             <div className="text-left sm:text-right">
-                                <p className="text-white text-sm font-medium">Admin User</p>
+                                <p className="text-white text-sm font-medium">{user?.hoTen || user?.taiKhoan || 'Quản trị viên'}</p>
                                 <p className="text-yellow-400 text-xs">Quản trị viên</p>
                             </div>
                             <div className="w-9 h-9 rounded-full bg-yellow-400 flex items-center justify-center text-gray-900 font-bold text-sm flex-shrink-0">
-                                A
+                                {user?.hoTen?.charAt(0)?.toUpperCase() || user?.taiKhoan?.charAt(0)?.toUpperCase() || 'A'}
                             </div>
                             <button
                                 type="button"
