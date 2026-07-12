@@ -193,7 +193,7 @@ const FilmPage = () => {
       try {
         const normalizedMovieName = normalizeText(values.tenPhim.trim())
         const duplicatedMovie = (allMovies.data || []).find((movie) => (
-          movie.maPhim !== editingMovie?.maPhim &&
+          movie.maPhim?.toString() !== editingMovie?.maPhim?.toString() &&
           normalizeText(movie.tenPhim?.trim()) === normalizedMovieName
         ))
 
