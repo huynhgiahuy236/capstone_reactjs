@@ -1,6 +1,6 @@
 import { useFormik } from 'formik'
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import * as Yup from 'yup'
 import { authApi } from '../api/authApi'
 
@@ -37,7 +37,10 @@ const registerSchema = Yup.object().shape({
     .required('Email không được để trống'),
   soDt: Yup.string()
     .transform((value) => value?.replace(/[\s.-]/g, ''))
-    .matches(/^(?:\+84|0)[35789][0-9]{8}$/, 'Số điện thoại Việt Nam không hợp lệ')
+    .matches(/^0/, 'Số điện thoại phải bắt đầu bằng số 0')
+    .matches(/^0[0-9]*$/, 'Số điện thoại chỉ được chứa chữ số')
+    .length(10, 'Số điện thoại phải có đúng 10 chữ số')
+    .matches(/^0[35789][0-9]{8}$/, 'Đầu số điện thoại không hợp lệ')
     .required('Số điện thoại không được để trống'),
 })
 
@@ -52,7 +55,10 @@ const fields = [
 
 const RegisterPage = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const [apiError, setApiError] = useState('')
+  const [showPasswords, setShowPasswords] = useState({ matKhau: false, xacNhanMatKhau: false })
+  const requestedPath = location.state?.from
 
   const formik = useFormik({
     initialValues: {
@@ -82,6 +88,7 @@ const RegisterPage = () => {
           state: {
             registeredAccount: values.taiKhoan.trim(),
             registerSuccess: `Tạo tài khoản ${values.taiKhoan} thành công. Bạn có thể đăng nhập.`,
+            from: requestedPath,
           },
         })
       } catch (error) {
@@ -112,14 +119,14 @@ const RegisterPage = () => {
               const hasError = formik.touched[field.name] && formik.errors[field.name]
 
               return (
-                <div key={field.name}>
+                <div key={field.name} className="relative">
                   <label htmlFor={field.name} className="mb-2 block text-sm font-medium text-gray-300">
                     {field.label}
                   </label>
                   <input
                     id={field.name}
                     name={field.name}
-                    type={field.type || 'text'}
+                    type={field.type === 'password' && showPasswords[field.name] ? 'text' : (field.type || 'text')}
                     autoComplete={field.autoComplete}
                     maxLength={field.maxLength}
                     inputMode={field.inputMode}
@@ -127,8 +134,13 @@ const RegisterPage = () => {
                     value={formik.values[field.name]}
                     onChange={formik.handleChange}
                     onBlur={formik.handleBlur}
-                    className={`w-full rounded-lg border bg-gray-700 px-4 py-3 text-white outline-none transition-all placeholder:text-gray-400 focus:ring-2 focus:ring-yellow-400 ${hasError ? 'border-red-500' : 'border-gray-600'}`}
+                    className={`w-full rounded-lg border bg-gray-700 px-4 py-3 text-white outline-none transition-all placeholder:text-gray-400 focus:ring-2 focus:ring-yellow-400 ${field.type === 'password' ? 'pr-16' : ''} ${hasError ? 'border-red-500' : 'border-gray-600'}`}
                   />
+                  {field.type === 'password' && (
+                    <button type="button" onClick={() => setShowPasswords((current) => ({ ...current, [field.name]: !current[field.name] }))} className="absolute right-3 top-10 rounded px-1 text-sm text-gray-300 hover:text-yellow-400" aria-label={showPasswords[field.name] ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}>
+                      {showPasswords[field.name] ? 'Ẩn' : 'Hiện'}
+                    </button>
+                  )}
                   {hasError && <p className="mt-1 text-sm text-red-400">{formik.errors[field.name]}</p>}
                 </div>
               )
@@ -147,7 +159,7 @@ const RegisterPage = () => {
 
           <p className="mt-6 text-center text-sm text-gray-400">
             Đã có tài khoản?{' '}
-            <Link to="/login" className="font-bold text-yellow-400 hover:underline">Đăng nhập</Link>
+            <Link to="/login" state={{ from: requestedPath }} className="font-bold text-yellow-400 hover:underline">Đăng nhập</Link>
           </p>
         </div>
       </div>
