@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux'
 import { useMemo } from 'react'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { useProfile } from '../hooks/useUser'
+import { useMovieList } from '../hooks/useMovies'
 import { selectorIsLoggedIn } from '../store/authSlice'
 
 const formatDateTime = (dateValue) => {
@@ -142,7 +143,9 @@ const BookingHistoryItem = ({ booking }) => {
     )
 }
 
-const MovieBookingGroup = ({ group }) => {
+const normalizeMovieName = (movieName) => movieName?.trim().toLocaleLowerCase('vi-VN') || ''
+
+const MovieBookingGroup = ({ group, isUnavailable }) => {
     const firstBooking = group.bookings[0]
 
     return (
@@ -165,7 +168,14 @@ const MovieBookingGroup = ({ group }) => {
                     <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
                             <div>
-                                <h3 className="text-white font-black text-2xl leading-tight">{group.tenPhim}</h3>
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <h3 className="text-white font-black text-2xl leading-tight">{group.tenPhim}</h3>
+                                    {isUnavailable && (
+                                        <span className="rounded-full border border-red-400/40 bg-red-400/10 px-3 py-1 text-xs font-bold text-red-300">
+                                            Phim không còn khả dụng
+                                        </span>
+                                    )}
+                                </div>
                                 <p className="text-gray-400 text-sm mt-2">
                                     {group.bookings.length} lần đặt
                                     {firstBooking?.maPhim && (
@@ -175,6 +185,14 @@ const MovieBookingGroup = ({ group }) => {
                                         </>
                                     )}
                                 </p>
+                                {isUnavailable && (
+                                    <div className="mt-4 max-w-2xl rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3">
+                                        <p className="font-bold text-amber-300">Suất chiếu đã bị hủy hoặc phim đã ngừng phát hành.</p>
+                                        <p className="mt-1 text-sm leading-relaxed text-amber-100/80">
+                                            Vé của bạn vẫn được lưu trong lịch sử. Yêu cầu hoàn tiền sẽ được xử lý theo chính sách của rạp; vui lòng liên hệ bộ phận hỗ trợ nếu chưa nhận được phản hồi.
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -193,9 +211,14 @@ const MovieBookingGroup = ({ group }) => {
 const ProfilePage = () => {
     const isLoggedIn = useSelector(selectorIsLoggedIn)
     const { data: profile, isLoading, isError, error } = useProfile(isLoggedIn)
+    const { data: currentMovies = [], isSuccess: hasLoadedMovies } = useMovieList(profile?.maNhom || 'GP01', '', isLoggedIn)
     const avatar = profile?.hoTen?.charAt(0)?.toUpperCase() || 'U'
     const bookingHistory = useMemo(() => profile?.thongTinDatVe || [], [profile?.thongTinDatVe])
     const bookingGroups = useMemo(() => groupBookingsByMovie(bookingHistory), [bookingHistory])
+    const currentMovieNames = useMemo(
+        () => new Set(currentMovies.map((movie) => normalizeMovieName(movie.tenPhim))),
+        [currentMovies]
+    )
 
     return (
         <div className="min-h-screen bg-gray-950 text-white">
@@ -273,7 +296,11 @@ const ProfilePage = () => {
 
                     <div className="space-y-5">
                         {bookingGroups.map((group) => (
-                            <MovieBookingGroup key={group.tenPhim} group={group} />
+                            <MovieBookingGroup
+                                key={group.tenPhim}
+                                group={group}
+                                isUnavailable={hasLoadedMovies && !currentMovieNames.has(normalizeMovieName(group.tenPhim))}
+                            />
                         ))}
                     </div>
                 </section>
