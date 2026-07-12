@@ -36,7 +36,8 @@ export const useCreateShowtime = () => {
 export const useTicketRoom = (maLichChieu) => {
     return useQuery({
         ...getTicketRoomQueryOptions(maLichChieu),
-        enabled: maLichChieu !== undefined && maLichChieu !== null && maLichChieu !== ""
+        enabled: maLichChieu !== undefined && maLichChieu !== null && maLichChieu !== "",
+        refetchInterval: 5000,
     })
 }
 

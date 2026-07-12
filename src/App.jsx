@@ -18,6 +18,7 @@ import ProtectedAdminRoute from "./components/ProtectedAdminRoute"
 import FilmPage from "./pages/admin/FilmPage"
 import ShowtimePage from "./pages/admin/ShowtimePage"
 import ScrollToTop from "./components/ScrollToTop"
+import AccountStatusGuard from "./components/AccountStatusGuard"
 
 // cài đặt query client ở ngoài App để tất cả các component, page
 // đều có thể sử dụng được
@@ -41,6 +42,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <ScrollToTop />
+          <AccountStatusGuard />
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />

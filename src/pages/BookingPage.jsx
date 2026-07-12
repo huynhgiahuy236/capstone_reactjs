@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { useAdminFeedback } from "../hooks/useAdminFeedback";
@@ -121,9 +121,11 @@ const BookingPage = () => {
   const [selectedScheduleDate, setSelectedScheduleDate] = useState("");
   const [scheduleStartOffset, setScheduleStartOffset] = useState(0);
   const [selectedSeats, setSelectedSeats] = useState([]);
+  const [holdExpiresAt, setHoldExpiresAt] = useState(null);
+  const [holdSecondsLeft, setHoldSecondsLeft] = useState(0);
   const { notify, confirm } = useAdminFeedback();
 
-  const { data: movie, isLoading: isMovieLoading } = useMovieDetail(maPhim);
+  const { data: movie, isLoading: isMovieLoading, isError: isMovieError } = useMovieDetail(maPhim, { refetchInterval: 5000 });
   const {
     data: showtimeDetail,
     isLoading: isShowtimeLoading,
@@ -288,6 +290,8 @@ const BookingPage = () => {
   const handleSelectShowtime = (maLichChieu) => {
     setManualSelectedShowtimeId(maLichChieu?.toString());
     setSelectedSeats([]);
+    setHoldExpiresAt(null);
+    setHoldSecondsLeft(0);
   };
 
   const handleSelectScheduleDate = (dateKey) => {
@@ -324,11 +328,52 @@ const BookingPage = () => {
 
     setSelectedSeats((currentSeats) => {
       const isSelected = currentSeats.some((item) => item.maGhe === seat.maGhe);
-      return isSelected
+      const nextSeats = isSelected
         ? currentSeats.filter((item) => item.maGhe !== seat.maGhe)
         : [...currentSeats, seat];
+
+      if (nextSeats.length === 0) {
+        setHoldExpiresAt(null);
+        setHoldSecondsLeft(0);
+      }
+      if (!isSelected && currentSeats.length === 0) {
+        setHoldExpiresAt(Date.now() + 2 * 60 * 1000);
+        setHoldSecondsLeft(120);
+      }
+      return nextSeats;
     });
   }, []);
+
+  useEffect(() => {
+    if (!holdExpiresAt) return undefined;
+
+    const updateCountdown = () => {
+      const seconds = Math.max(0, Math.ceil((holdExpiresAt - Date.now()) / 1000));
+      setHoldSecondsLeft(seconds);
+      if (seconds === 0) {
+        setSelectedSeats([]);
+        setHoldExpiresAt(null);
+        notify({ type: "warning", title: "Hết thời gian giữ ghế", message: "Ghế đã được nhả sau 2 phút. Vui lòng chọn lại ghế." });
+      }
+    };
+
+    const timer = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(timer);
+  }, [holdExpiresAt, notify]);
+
+  useEffect(() => {
+    if (!selectedSeats.length || !seats.length) return;
+    const bookedSeatIds = new Set(seats.filter((seat) => seat.daDat).map((seat) => seat.maGhe));
+    const availableSelectedSeats = selectedSeats.filter((seat) => !bookedSeatIds.has(seat.maGhe));
+    if (availableSelectedSeats.length !== selectedSeats.length) {
+      const timer = window.setTimeout(() => {
+        setSelectedSeats(availableSelectedSeats);
+        notify({ type: "warning", title: "Ghế vừa được đặt", message: "Một ghế bạn chọn đã được người khác đặt và được bỏ khỏi danh sách." });
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+    return undefined;
+  }, [seats, selectedSeats, notify]);
 
   const handleBookTickets = async () => {
     if (!selectedShowtimeId) {
@@ -349,12 +394,39 @@ const BookingPage = () => {
       return;
     }
 
-    const seatNames = selectedSeats
-      .map((seat) => seat.displaySeatName || seat.tenGhe)
-      .join(", ");
     const accepted = await confirm({
       title: "Xác nhận đặt vé",
-      message: `${movieInfo?.tenPhim || movie?.tenPhim || "Phim đã chọn"} · ${selectedShowtime?.tenCumRap || "Rạp đã chọn"} · ${formatScheduleTime(selectedShowtime?.ngayChieuGioChieu)} · Ghế ${seatNames} · ${formatMoney(totalPrice)} VND`,
+      message: (
+        <div className="overflow-hidden rounded-xl border border-gray-700 bg-gray-950/60">
+          <dl className="divide-y divide-gray-800">
+            {[
+              ["Phim", movieInfo?.tenPhim || movie?.tenPhim || "Phim đã chọn"],
+              ["Cụm rạp", selectedShowtime?.tenCumRap || "Rạp đã chọn"],
+              ["Rạp", selectedShowtime?.tenRap || movieInfo?.tenRap || "Đang cập nhật"],
+              ["Suất chiếu", formatScheduleTime(selectedShowtime?.ngayChieuGioChieu)],
+            ].map(([label, value]) => (
+              <div key={label} className="grid grid-cols-[88px_1fr] gap-3 px-4 py-2.5">
+                <dt className="text-gray-500">{label}</dt>
+                <dd className="min-w-0 text-right font-semibold text-gray-100">{value}</dd>
+              </div>
+            ))}
+            <div className="px-4 py-3">
+              <dt className="mb-2 text-gray-500">Ghế đã chọn ({selectedSeats.length})</dt>
+              <dd className="flex flex-wrap gap-2">
+                {selectedSeats.map((seat) => (
+                  <span key={seat.maGhe} className="rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1 font-bold text-yellow-300">
+                    {seat.displaySeatName || seat.tenGhe}
+                  </span>
+                ))}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-4 bg-yellow-400/10 px-4 py-3">
+              <dt className="font-bold text-yellow-200">Tổng tiền</dt>
+              <dd className="text-lg font-black text-yellow-400">{formatMoney(totalPrice)} VND</dd>
+            </div>
+          </dl>
+        </div>
+      ),
       confirmText: "Xác nhận đặt vé",
       cancelText: "Kiểm tra lại",
       tone: "warning",
@@ -377,6 +449,8 @@ const BookingPage = () => {
         message: `${selectedSeats.length} ghế - ${formatMoney(totalPrice)} VND`,
       });
       setSelectedSeats([]);
+      setHoldExpiresAt(null);
+      setHoldSecondsLeft(0);
     } catch (error) {
       notify({
         type: "error",
@@ -388,6 +462,15 @@ const BookingPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
+      {isMovieError && (
+        <div className="fixed inset-0 z-[150] grid place-items-center bg-black/90 px-4 backdrop-blur-md">
+          <div role="alertdialog" aria-modal="true" className="w-full max-w-md rounded-2xl border border-yellow-400/40 bg-gray-900 p-6 text-center shadow-2xl">
+            <h2 className="text-xl font-black text-white">Phim không còn khả dụng</h2>
+            <p className="mt-3 text-sm leading-6 text-gray-300">Phim có thể đã bị xóa hoặc đang được bảo trì. Bạn không thể tiếp tục đặt vé cho phim này.</p>
+            <Link to="/movie" className="mt-6 block w-full rounded-xl bg-yellow-400 px-5 py-3 font-bold text-gray-950 hover:bg-yellow-300">Về danh sách phim</Link>
+          </div>
+        </div>
+      )}
       {isLoading && (
         <div className="fixed inset-0 flex items-center justify-center bg-gray-950/70 z-50">
           <LoadingSpinner />
@@ -885,6 +968,12 @@ const BookingPage = () => {
             >
               Đặt vé
             </button>
+
+            {selectedSeats.length > 0 && (
+              <p className={`mt-3 text-center text-sm font-bold ${holdSecondsLeft <= 30 ? "text-red-400" : "text-yellow-300"}`}>
+                Giữ ghế còn {String(Math.floor(holdSecondsLeft / 60)).padStart(2, "0")}:{String(holdSecondsLeft % 60).padStart(2, "0")}
+              </p>
+            )}
 
             {selectedShowtime && (
               <p className="text-gray-500 text-xs mt-4 text-center">

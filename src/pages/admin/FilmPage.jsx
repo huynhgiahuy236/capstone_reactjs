@@ -1,5 +1,5 @@
 import { useFormik } from 'formik'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSelector } from 'react-redux'
 import * as Yup from 'yup'
 import LoadingSpinner from '../../components/LoadingSpinner'
@@ -9,11 +9,17 @@ import { useAddMovie, useDeleteMovie, useMovieList, useMovieListPhanTrang, useUp
 import { selectorUser } from '../../store/authSlice'
 
 const movieSchema = Yup.object().shape({
-  tenPhim: Yup.string().required('Tên phim không được để trống'),
-  trailer: Yup.string().required('Trailer không được để trống'),
-  moTa: Yup.string().required('Mô tả không được để trống'),
-  ngayKhoiChieu: Yup.string().required('Ngày khởi chiếu không được để trống'),
-  danhGia: Yup.number().min(0).max(10).required('Đánh giá không được để trống'),
+  tenPhim: Yup.string().trim().min(2, 'Tên phim phải có ít nhất 2 ký tự').max(100, 'Tên phim không được quá 100 ký tự').required('Tên phim không được để trống'),
+  biDanh: Yup.string().trim().max(120, 'Bí danh không được quá 120 ký tự').matches(/^[a-z0-9-]*$/, 'Bí danh chỉ dùng chữ thường không dấu, số và dấu gạch ngang'),
+  trailer: Yup.string().trim().url('Trailer phải là một đường dẫn hợp lệ').matches(/^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//i, 'Trailer phải là đường dẫn YouTube').required('Trailer không được để trống'),
+  moTa: Yup.string().trim().min(10, 'Mô tả phải có ít nhất 10 ký tự').max(2000, 'Mô tả không được quá 2000 ký tự').required('Mô tả không được để trống'),
+  ngayKhoiChieu: Yup.date().typeError('Ngày khởi chiếu không hợp lệ').required('Ngày khởi chiếu không được để trống'),
+  danhGia: Yup.number().typeError('Đánh giá phải là một số').min(0, 'Đánh giá tối thiểu là 0').max(10, 'Đánh giá tối đa là 10').required('Đánh giá không được để trống'),
+  hinhAnhFile: Yup.mixed().nullable().test('file-size', 'Ảnh không được vượt quá 5 MB', (file) => !file || file.size <= 5 * 1024 * 1024).test('file-type', 'Chỉ chấp nhận ảnh JPG, PNG hoặc WEBP', (file) => !file || ['image/jpeg', 'image/png', 'image/webp'].includes(file.type)),
+}).test('image-required', 'Vui lòng chọn hình ảnh phim', function (values) {
+  return values?.hinhAnh || values?.hinhAnhFile || this.createError({ path: 'hinhAnhFile', message: 'Vui lòng chọn hình ảnh phim' })
+}).test('movie-status', 'Phim không thể vừa đang chiếu vừa sắp chiếu', function (values) {
+  return !(values?.dangChieu && values?.sapChieu) || this.createError({ path: 'dangChieu', message: 'Chỉ chọn đang chiếu hoặc sắp chiếu' })
 })
 
 const initialMovieValues = {
@@ -160,17 +166,25 @@ const FilmPage = () => {
     const startIndex = (currentPage - 1) * PAGE_SIZE
     return searchItems.slice(startIndex, startIndex + PAGE_SIZE)
   }, [currentPage, isSearchMode, paginatedMovies.data?.items, searchItems])
-  const totalPages = isSearchMode ? Math.max(1, Math.ceil(searchItems.length / PAGE_SIZE)) : paginatedMovies.data?.totalPages || 1
   const totalCount = isSearchMode ? searchItems.length : paginatedMovies.data?.totalCount || 0
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
   const isLoading = isSearchMode ? searchMovies.isLoading : paginatedMovies.isLoading
   const isError = isSearchMode ? searchMovies.isError : paginatedMovies.isError
   const error = isSearchMode ? searchMovies.error : paginatedMovies.error
   const isSearching = searchTerm !== debouncedSearchTerm
 
+  useEffect(() => {
+    if (!isLoading && currentPage > totalPages) {
+      const timer = window.setTimeout(() => setCurrentPage(totalPages), 0)
+      return () => window.clearTimeout(timer)
+    }
+    return undefined
+  }, [currentPage, isLoading, totalPages])
+
   const formik = useFormik({
     initialValues: initialMovieValues,
     validationSchema: movieSchema,
-    onSubmit: async (values, { resetForm }) => {
+    onSubmit: async (values, { resetForm, setFieldError }) => {
       if (!isAdmin) {
         notify({ type: 'error', title: 'Không có quyền', message: 'Bạn không có quyền quản lý phim' })
         return
@@ -190,7 +204,9 @@ const FilmPage = () => {
         setIsModalOpen(false)
         notify({ type: 'success', title: editingMovie ? 'Cập nhật thành công' : 'Thêm phim thành công', message: values.tenPhim })
       } catch (error) {
-        notify({ type: 'error', title: 'Lưu phim thất bại', message: error.response?.data?.content || error.message || 'Lưu phim thất bại' })
+        const message = error.response?.data?.content || error.message || 'Lưu phim thất bại'
+        if (/tên phim|đã tồn tại|movie name/i.test(message)) setFieldError('tenPhim', message)
+        notify({ type: 'error', title: 'Lưu phim thất bại', message })
       }
     }
   })
@@ -202,7 +218,7 @@ const FilmPage = () => {
     }
 
     setEditingMovie(null)
-    formik.setValues(initialMovieValues)
+    formik.resetForm({ values: initialMovieValues })
     setIsModalOpen(true)
   }
 
@@ -213,7 +229,7 @@ const FilmPage = () => {
     }
 
     setEditingMovie(movie)
-    formik.setValues({
+    formik.resetForm({ values: {
       maPhim: movie.maPhim || '',
       tenPhim: movie.tenPhim || '',
       biDanh: movie.biDanh || '',
@@ -227,7 +243,7 @@ const FilmPage = () => {
       hinhAnh: movie.hinhAnh || '',
       hinhAnhFile: null,
       maNhom: movie.maNhom || 'GP01'
-    })
+    } })
     setIsModalOpen(true)
   }
 
@@ -257,6 +273,9 @@ const FilmPage = () => {
 
     try {
       await deleteMovie.mutateAsync(maPhim)
+      if (movies.length === 1 && currentPage > 1) {
+        setCurrentPage((page) => page - 1)
+      }
       notify({ type: 'success', title: 'Xóa phim thành công', message: tenPhim })
     } catch (error) {
       notify({ type: 'error', title: 'Xóa phim thất bại', message: error.response?.data?.content || 'Xóa phim thất bại' })
@@ -478,6 +497,9 @@ const FilmPage = () => {
                       placeholder="Nhập tên phim"
                       className="w-full bg-gray-800 text-white placeholder-gray-500 border border-gray-700 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-yellow-400 text-sm"
                     />
+                    {formik.touched.biDanh && formik.errors.biDanh && (
+                      <p className="text-red-500 text-xs mt-1">{formik.errors.biDanh}</p>
+                    )}
                     {formik.touched.tenPhim && formik.errors.tenPhim && (
                       <p className="text-red-500 text-xs mt-1">{formik.errors.tenPhim}</p>
                     )}
@@ -564,6 +586,9 @@ const FilmPage = () => {
                         {formik.values.hinhAnhFile.name}
                       </p>
                     )}
+                    {formik.touched.hinhAnhFile && formik.errors.hinhAnhFile && (
+                      <p className="text-red-500 text-xs mt-1">{formik.errors.hinhAnhFile}</p>
+                    )}
                   </div>
                 </div>
 
@@ -593,6 +618,9 @@ const FilmPage = () => {
                     Sắp chiếu
                   </label>
                 </div>
+                {formik.errors.dangChieu && formik.submitCount > 0 && (
+                  <p className="text-red-500 text-xs">{formik.errors.dangChieu}</p>
+                )}
 
                 <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
                   <button

@@ -20,12 +20,18 @@ const showtimeSchema = Yup.object().shape({
   maHeThongRap: Yup.string().required("Hệ thống rạp không được để trống"),
   maCumRap: Yup.string().required("Cụm rạp không được để trống"),
   maRap: Yup.string().required("Rạp không được để trống"),
-  ngayChieu: Yup.string().required("Ngày chiếu không được để trống"),
+  ngayChieu: Yup.string().required("Ngày chiếu không được để trống").test("not-past", "Ngày chiếu không được ở trong quá khứ", (value) => !value || value >= getTodayInputValue()),
   gioChieu: Yup.string().required("Giờ chiếu không được để trống"),
   giaVe: Yup.number()
+    .typeError("Giá vé phải là một số")
+    .integer("Giá vé phải là số nguyên")
     .min(75000, "Giá vé tối thiểu 75.000")
     .max(200000, "Giá vé tối đa 200.000")
     .required("Giá vé không được để trống"),
+}).test("future-showtime", "Suất chiếu phải ở tương lai", function (values) {
+  if (!values?.ngayChieu || !values?.gioChieu) return true;
+  const showtime = new Date(`${values.ngayChieu}T${values.gioChieu}:00`);
+  return showtime > new Date() || this.createError({ path: "gioChieu", message: "Giờ chiếu phải ở tương lai" });
 });
 
 const initialShowtimeValues = {
