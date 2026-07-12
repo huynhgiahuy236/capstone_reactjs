@@ -6,6 +6,7 @@ import LoadingSpinner from '../../components/LoadingSpinner'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { useAdminFeedback } from '../../hooks/useAdminFeedback'
 import { useAddUser, useDeleteUser, useUpdateUser, useUserList, useUsers } from '../../hooks/useUser'
+import { userApi } from '../../api/userApi'
 import { login, selectorUser } from '../../store/authSlice'
 
 const userSchema = Yup.object().shape({
@@ -92,12 +93,26 @@ const UserPage = () => {
         return
       }
 
+      const normalizedPhone = values.soDt.replace(/[\s.-]/g, '')
       const userData = {
         ...values,
+        soDt: normalizedPhone,
         maNhom: values.maNhom || 'GP01'
       }
 
       try {
+        const userListResponse = await userApi.getUserList(userData.maNhom)
+        const isPhoneTaken = userListResponse.data.content.some((user) => {
+          const isCurrentEditingUser = editingUser && user.taiKhoan === editingUser.taiKhoan
+          const existingPhone = String(user.soDT ?? user.soDt ?? '').replace(/[\s.-]/g, '')
+          return !isCurrentEditingUser && existingPhone === normalizedPhone
+        })
+
+        if (isPhoneTaken) {
+          setFieldError('soDt', 'Số điện thoại đã được sử dụng')
+          return
+        }
+
         if (editingUser) {
           await updateUser.mutateAsync(userData)
 

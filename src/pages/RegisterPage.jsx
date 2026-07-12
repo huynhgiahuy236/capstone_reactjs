@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import * as Yup from 'yup'
 import { useQueryClient } from '@tanstack/react-query'
 import { authApi } from '../api/authApi'
+import { userApi } from '../api/userApi'
 
 const registerSchema = Yup.object().shape({
   taiKhoan: Yup.string()
@@ -76,11 +77,24 @@ const RegisterPage = () => {
       setApiError('')
 
       try {
+        const normalizedPhone = values.soDt.replace(/[\s.-]/g, '')
+        const userListResponse = await userApi.getUserList('GP01')
+        const isPhoneTaken = userListResponse.data.content.some((user) => {
+          const existingPhone = String(user.soDT ?? user.soDt ?? '').replace(/[\s.-]/g, '')
+          return existingPhone === normalizedPhone
+        })
+
+        if (isPhoneTaken) {
+          formik.setFieldTouched('soDt', true, false)
+          formik.setFieldError('soDt', 'Số điện thoại đã được sử dụng')
+          return
+        }
+
         await authApi.register({
           taiKhoan: values.taiKhoan.trim(),
           matKhau: values.matKhau,
           email: values.email.trim().toLowerCase(),
-          soDt: values.soDt.replace(/[\s.-]/g, ''),
+          soDt: normalizedPhone,
           maNhom: 'GP01',
           hoTen: values.hoTen.trim(),
         })
