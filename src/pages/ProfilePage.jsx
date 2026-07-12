@@ -215,7 +215,7 @@ const MovieBookingGroup = ({ group, isUnavailable }) => {
 const ProfilePage = () => {
     const isLoggedIn = useSelector(selectorIsLoggedIn)
     const { data: profile, isLoading, isError, error } = useProfile(isLoggedIn)
-    const { data: currentMovies = [], isSuccess: hasLoadedMovies } = useMovieList(profile?.maNhom || 'GP01', '', isLoggedIn)
+    const { data: currentMovies = [], isSuccess: hasLoadedMovies } = useMovieList('GP01', '', isLoggedIn)
     const avatar = profile?.hoTen?.charAt(0)?.toUpperCase() || 'U'
     const bookingHistory = useMemo(() => profile?.thongTinDatVe || [], [profile?.thongTinDatVe])
     const bookingGroups = useMemo(() => groupBookingsByMovie(bookingHistory), [bookingHistory])
@@ -305,9 +305,10 @@ const ProfilePage = () => {
                     <div className="space-y-5">
                         {bookingGroups.map((group) => {
                             const movieId = group.bookings[0]?.maPhim?.toString()
-                            const isCurrentMovie = movieId
-                                ? currentMovieIds.has(movieId)
-                                : currentMovieNames.has(normalizeMovieName(group.tenPhim))
+                            const isCurrentMovie = (
+                                (movieId && currentMovieIds.has(movieId)) ||
+                                currentMovieNames.has(normalizeMovieName(group.tenPhim))
+                            )
 
                             return (
                                 <MovieBookingGroup
