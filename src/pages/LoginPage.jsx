@@ -30,8 +30,8 @@ const LoginPage = () => {
     const formik = useFormik({
         // giá trị ban đầu của form
         initialValues: {
-            taiKhoan: registeredAccount || "adminGiang",
-            matKhau: registeredAccount ? "" : "123456"
+            taiKhoan: registeredAccount || "adminHuyKien",
+            matKhau: registeredAccount ? "" : "HuyKien@1234"
         },
         // validation schema để validate form
         validationSchema: loginSchema,
