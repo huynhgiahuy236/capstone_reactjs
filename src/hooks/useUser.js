@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { userApi } from "../api/userApi"
 
-export const useProfile = (isLoggedIn) => {
+export const useProfile = (isLoggedIn, options = {}) => {
     // gọi API lấy thông tin người dùng
     return useQuery({
         queryKey: ['profile'],
@@ -11,6 +11,8 @@ export const useProfile = (isLoggedIn) => {
         },
         enabled: isLoggedIn, // chỉ gọi API khi người dùng đã đăng nhập
         refetchOnMount: 'always', // luôn gọi lại khi component mount
+        retry: false,
+        ...options,
     })
 }
 
@@ -20,7 +22,9 @@ export const useUsers = (soTrang = 1, soPhanTuTrenTrang = 10) => {
         queryFn: async () => {
             const response = await userApi.getUserListPhanTrang('GP01', soTrang, soPhanTuTrenTrang)
             return response.data.content // { currentPage, count, totalPages, totalCount, items }
-        }
+        },
+        refetchOnMount: 'always',
+        refetchInterval: 5000,
     })
 }
 
@@ -31,7 +35,9 @@ export const useUserList = (maNhom = 'GP01', enabled = true) => {
             const response = await userApi.getUserList(maNhom)
             return response.data.content
         },
-        enabled
+        enabled,
+        refetchOnMount: 'always',
+        refetchInterval: enabled ? 5000 : false,
     })
 }
 

@@ -42,7 +42,7 @@ const formatDate = (dateValue) => {
 
 const MovieDetailPage = () => {
     const { maPhim } = useParams()
-    const { data: movie, isLoading, isError, error } = useMovieDetail(maPhim)
+    const { data: movie, isLoading, isError, error } = useMovieDetail(maPhim, { refetchInterval: 5000 })
     const { safeUrl: trailerUrl, youtubeId } = getTrailerData(movie?.trailer)
     const rating = Number(movie?.danhGia || 0)
 

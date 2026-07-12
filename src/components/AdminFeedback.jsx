@@ -125,7 +125,7 @@ export const AdminFeedbackProvider = ({ children }) => {
           >
             <div className="mb-5">
               <h2 id="feedback-dialog-title" className="text-lg font-black text-white">{confirmState.title}</h2>
-              <p id="feedback-dialog-description" className="mt-2 text-sm leading-6 text-gray-300">{confirmState.message}</p>
+              <div id="feedback-dialog-description" className="mt-3 text-sm leading-6 text-gray-300">{confirmState.message}</div>
             </div>
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button ref={cancelButtonRef} type="button" onClick={() => closeConfirm(false)} className="rounded-xl border border-gray-700 px-5 py-2.5 text-sm font-bold text-gray-300 hover:border-gray-500 hover:text-white">

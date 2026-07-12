@@ -22,14 +22,16 @@ export const useMovieListPhanTrang = (soTrang = 1, soPhanTuTrenTrang = 10, tenPh
     })
 }
 
-export const useMovieDetail = (maPhim) => {
+export const useMovieDetail = (maPhim, options = {}) => {
     return useQuery({
         queryKey: ['movieDetail', maPhim],
         queryFn: async () => {
             const response = await movieApi.getMovieDetail(maPhim)
             return response.data.content
         },
-        enabled: maPhim !== undefined && maPhim !== null && maPhim !== ""
+        enabled: maPhim !== undefined && maPhim !== null && maPhim !== "",
+        retry: false,
+        ...options,
     })
 }
 

@@ -2,6 +2,7 @@ import { useFormik } from 'formik'
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import * as Yup from 'yup'
+import { useQueryClient } from '@tanstack/react-query'
 import { authApi } from '../api/authApi'
 
 const registerSchema = Yup.object().shape({
@@ -55,6 +56,7 @@ const fields = [
 
 const RegisterPage = () => {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const location = useLocation()
   const [apiError, setApiError] = useState('')
   const [showPasswords, setShowPasswords] = useState({ matKhau: false, xacNhanMatKhau: false })
@@ -82,6 +84,11 @@ const RegisterPage = () => {
           maNhom: 'GP01',
           hoTen: values.hoTen.trim(),
         })
+
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['users'] }),
+          queryClient.invalidateQueries({ queryKey: ['userList'] }),
+        ])
 
         navigate('/login', {
           replace: true,

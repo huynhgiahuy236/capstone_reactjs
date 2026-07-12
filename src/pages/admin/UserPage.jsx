@@ -9,11 +9,11 @@ import { useAddUser, useDeleteUser, useUpdateUser, useUserList, useUsers } from 
 import { login, selectorUser } from '../../store/authSlice'
 
 const userSchema = Yup.object().shape({
-  taiKhoan: Yup.string().required('Tài khoản không được để trống'),
-  matKhau: Yup.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự').required('Mật khẩu không được để trống'),
-  email: Yup.string().email('Email không hợp lệ').required('Email không được để trống'),
-  soDt: Yup.string().required('Số điện thoại không được để trống'),
-  hoTen: Yup.string().required('Họ tên không được để trống'),
+  taiKhoan: Yup.string().trim().min(4, 'Tài khoản phải có 4-20 ký tự').max(20, 'Tài khoản phải có 4-20 ký tự').matches(/^[A-Za-z0-9_]+$/, 'Chỉ dùng chữ không dấu, số và dấu gạch dưới').required('Tài khoản không được để trống'),
+  matKhau: Yup.string().min(8, 'Mật khẩu phải có ít nhất 8 ký tự').max(64, 'Mật khẩu không được quá 64 ký tự').matches(/[a-z]/, 'Mật khẩu cần ít nhất 1 chữ thường').matches(/[A-Z]/, 'Mật khẩu cần ít nhất 1 chữ hoa').matches(/[0-9]/, 'Mật khẩu cần ít nhất 1 chữ số').matches(/[^A-Za-z0-9]/, 'Mật khẩu cần ít nhất 1 ký tự đặc biệt').matches(/^\S+$/, 'Mật khẩu không được chứa khoảng trắng').required('Mật khẩu không được để trống'),
+  email: Yup.string().trim().max(254, 'Email không được quá 254 ký tự').email('Email không đúng định dạng').required('Email không được để trống'),
+  soDt: Yup.string().transform((value) => value?.replace(/[\s.-]/g, '')).matches(/^0/, 'Số điện thoại phải bắt đầu bằng số 0').matches(/^0[0-9]*$/, 'Số điện thoại chỉ được chứa chữ số').length(10, 'Số điện thoại phải có đúng 10 chữ số').matches(/^0[35789][0-9]{8}$/, 'Đầu số điện thoại không hợp lệ').required('Số điện thoại không được để trống'),
+  hoTen: Yup.string().trim().min(2, 'Họ tên phải có ít nhất 2 ký tự').max(50, 'Họ tên không được quá 50 ký tự').matches(/^[\p{L}\p{M}]+(?:[ '-][\p{L}\p{M}]+)*$/u, 'Họ tên chỉ được chứa chữ cái').required('Họ tên không được để trống'),
   maLoaiNguoiDung: Yup.string().required('Loại người dùng không được để trống'),
 })
 
@@ -34,6 +34,7 @@ const UserPage = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
+  const [showPassword, setShowPassword] = useState(false)
   const { notify, confirm } = useAdminFeedback()
   const PAGE_SIZE = 10
   const isAdmin = currentUser?.maLoaiNguoiDung === 'QuanTri'
@@ -85,7 +86,7 @@ const UserPage = () => {
   const formik = useFormik({
     initialValues: initialUserValues,
     validationSchema: userSchema,
-    onSubmit: async (values, { resetForm }) => {
+    onSubmit: async (values, { resetForm, setFieldError }) => {
       if (!isAdmin) {
         notify({ type: 'error', title: 'Không có quyền', message: 'Bạn không có quyền quản lý người dùng' })
         return
@@ -119,7 +120,10 @@ const UserPage = () => {
         setIsModalOpen(false)
         notify({ type: 'success', title: editingUser ? 'Cập nhật thành công' : 'Thêm người dùng thành công', message: userData.taiKhoan })
       } catch (error) {
-        notify({ type: 'error', title: 'Lưu người dùng thất bại', message: error.response?.data?.content || 'Lưu người dùng thất bại' })
+        const message = error.response?.data?.content || 'Lưu người dùng thất bại'
+        if (/tài khoản|account/i.test(message)) setFieldError('taiKhoan', message)
+        if (/email/i.test(message)) setFieldError('email', message)
+        notify({ type: 'error', title: 'Lưu người dùng thất bại', message })
       }
     }
   })
@@ -131,7 +135,8 @@ const UserPage = () => {
     }
 
     setEditingUser(null)
-    formik.setValues(initialUserValues)
+    setShowPassword(false)
+    formik.resetForm({ values: initialUserValues })
     setIsModalOpen(true)
   }
 
@@ -142,7 +147,8 @@ const UserPage = () => {
     }
 
     setEditingUser(user)
-    formik.setValues({
+    setShowPassword(false)
+    formik.resetForm({ values: {
       taiKhoan: user.taiKhoan || '',
       matKhau: user.matKhau || '',
       email: user.email || '',
@@ -150,13 +156,14 @@ const UserPage = () => {
       hoTen: user.hoTen || '',
       maLoaiNguoiDung: user.maLoaiNguoiDung || 'KhachHang',
       maNhom: user.maNhom || 'GP01'
-    })
+    } })
     setIsModalOpen(true)
   }
 
   const closeModal = () => {
     formik.resetForm()
     setEditingUser(null)
+    setShowPassword(false)
     setIsModalOpen(false)
   }
 
@@ -180,9 +187,13 @@ const UserPage = () => {
 
     try {
       await deleteUser.mutateAsync(taiKhoan)
+      if (users.length === 1 && currentPage > 1) {
+        setCurrentPage((page) => page - 1)
+      }
       notify({ type: 'success', title: 'Xóa người dùng thành công', message: taiKhoan })
     } catch (error) {
-      notify({ type: 'error', title: 'Xóa người dùng thất bại', message: error.response?.data?.content || 'Xóa người dùng thất bại' })
+      const message = error.response?.data?.content || error.response?.data?.message || 'API không cho phép xóa người dùng này'
+      notify({ type: 'error', title: 'Xóa người dùng thất bại', message })
     }
   }
 
@@ -378,14 +389,22 @@ const UserPage = () => {
                       <p className="text-red-500 text-xs mt-1">{formik.errors.taiKhoan}</p>
                     )}
                   </div>
-                  <div>
+                  <div className="relative">
                     <label className="block text-gray-400 text-xs font-medium mb-1.5">Mật khẩu</label>
                     <input
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       {...formik.getFieldProps('matKhau')}
                       placeholder="Nhập mật khẩu"
-                      className="w-full bg-gray-800 text-white placeholder-gray-500 border border-gray-700 rounded-lg px-3 py-2.5 outline-none focus:ring-2 focus:ring-yellow-400 text-sm"
+                      className="w-full bg-gray-800 text-white placeholder-gray-500 border border-gray-700 rounded-lg px-3 py-2.5 pr-16 outline-none focus:ring-2 focus:ring-yellow-400 text-sm"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((current) => !current)}
+                      aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                      className="absolute right-3 top-8 rounded px-1 py-0.5 text-xs font-semibold text-gray-400 hover:text-yellow-400"
+                    >
+                      {showPassword ? 'Ẩn' : 'Hiện'}
+                    </button>
                     {formik.touched.matKhau && formik.errors.matKhau && (
                       <p className="text-red-500 text-xs mt-1">{formik.errors.matKhau}</p>
                     )}
