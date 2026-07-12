@@ -140,6 +140,16 @@ const MovieListPage = () => {
         return () => clearTimeout(scrollTimer)
     }, [location.hash, isLoading, isError, isOverview, filteredMovies.length])
 
+    useEffect(() => {
+        if (!selectedType || isLoading || isError) return
+
+        const scrollTimer = setTimeout(() => {
+            document.getElementById('movie-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }, 100)
+
+        return () => clearTimeout(scrollTimer)
+    }, [selectedType, isLoading, isError])
+
     return (
         <div className="min-h-screen bg-gray-950 text-white">
             <Banner />
@@ -171,7 +181,7 @@ const MovieListPage = () => {
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto px-4 py-8">
+            <div id="movie-results" className="scroll-mt-24 max-w-7xl mx-auto px-4 py-8">
                 {isLoading && <LoadingSpinner />}
 
                 {isError && (

@@ -13,6 +13,7 @@ const loginSchema = Yup.object().shape({
 
 const LoginPage = () => {
     const [apiError, setApiError] = useState("")
+    const [showPassword, setShowPassword] = useState(false)
 
     // dispatch
     const dispatch = useDispatch()
@@ -100,14 +101,19 @@ const LoginPage = () => {
                             {/* Password Field */}
                             <div className="mb-6">
                                 <label htmlFor="matKhau" className="block text-gray-300 text-sm font-medium mb-2">Mật khẩu</label>
+                                <div className="relative">
                                 <input
-                                    type="password"
+                                    type={showPassword ? 'text' : 'password'}
                                     id="matKhau"
                                     autoComplete="current-password"
                                     {...formik.getFieldProps("matKhau")}
                                     placeholder="••••••••"
-                                    className="w-full bg-gray-700 text-white placeholder-gray-400 border border-gray-600 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-400 transition-all"
+                                    className="w-full bg-gray-700 text-white placeholder-gray-400 border border-gray-600 rounded-lg px-4 py-3 pr-16 outline-none focus:ring-2 focus:ring-yellow-400 transition-all"
                                 />
+                                <button type="button" onClick={() => setShowPassword((current) => !current)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded px-1 text-sm text-gray-300 hover:text-yellow-400" aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}>
+                                    {showPassword ? 'Ẩn' : 'Hiện'}
+                                </button>
+                                </div>
                                 {formik.touched.matKhau && formik.errors.matKhau && (
                                     <p className="text-red-400 text-sm mt-1">{formik.errors.matKhau}</p>
                                 )}
@@ -127,7 +133,7 @@ const LoginPage = () => {
                         </form>
                         <p className="text-center text-gray-400 text-sm mt-6">
                             Chưa có tài khoản?{' '}
-                            <Link to="/register" className="text-yellow-400 font-bold hover:underline">Đăng ký ngay</Link>
+                            <Link to="/register" state={{ from: location.state?.from }} className="text-yellow-400 font-bold hover:underline">Đăng ký ngay</Link>
                         </p>
                     </div>
                 </div>
