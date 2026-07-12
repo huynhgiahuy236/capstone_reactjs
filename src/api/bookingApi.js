@@ -8,6 +8,9 @@ export const bookingApi = {
             }
         })
     },
+    deleteShowtime: (maLichChieu) => {
+        return axiosInstance.delete(`/QuanLyDatVe/XoaLichChieu?MaLichChieu=${maLichChieu}`)
+    },
     getTicketRoom: (maLichChieu) => {
         return axiosInstance.get(`/QuanLyDatVe/LayDanhSachPhongVe?MaLichChieu=${maLichChieu}`)
     },

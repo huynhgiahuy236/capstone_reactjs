@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { movieApi } from "../api/movieApi"
+import { cinemaApi } from "../api/cinemaApi"
+import { bookingApi } from "../api/bookingApi"
 
 export const useMovieList = (maNhom = 'GP01', tenPhim = '', enabled = true) => {
     return useQuery({
@@ -70,10 +72,23 @@ export const useUpdateMovie = () => {
 export const useDeleteMovie = () => {
     const queryClient = useQueryClient()
     return useMutation({
-        mutationFn: (maPhim) => movieApi.deleteMovie(maPhim),
-        onSuccess: () => {
+        mutationFn: async (maPhim) => {
+            const scheduleResponse = await cinemaApi.getLichChieuPhim(maPhim)
+            const cinemaSystems = scheduleResponse.data.content?.heThongRapChieu || []
+            const showtimeIds = cinemaSystems.flatMap((cinemaSystem) =>
+                (cinemaSystem.cumRapChieu || []).flatMap((cinemaCluster) =>
+                    (cinemaCluster.lichChieuPhim || []).map((showtime) => showtime.maLichChieu)
+                )
+            )
+
+            await Promise.all(showtimeIds.map((maLichChieu) => bookingApi.deleteShowtime(maLichChieu)))
+            return movieApi.deleteMovie(maPhim)
+        },
+        onSuccess: (_, maPhim) => {
             queryClient.invalidateQueries({ queryKey: ['movieList'] })
             queryClient.invalidateQueries({ queryKey: ['movieListPhanTrang'] })
+            queryClient.removeQueries({ queryKey: ['lichChieuPhim', maPhim] })
+            queryClient.removeQueries({ queryKey: ['movieDetail', maPhim] })
         }
     })
 }
