@@ -143,7 +143,11 @@ const BookingHistoryItem = ({ booking }) => {
     )
 }
 
-const normalizeMovieName = (movieName) => movieName?.trim().toLocaleLowerCase('vi-VN') || ''
+const normalizeMovieName = (movieName) => movieName
+    ?.normalize('NFC')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('vi-VN') || ''
 
 const MovieBookingGroup = ({ group, isUnavailable }) => {
     const firstBooking = group.bookings[0]
@@ -187,7 +191,7 @@ const MovieBookingGroup = ({ group, isUnavailable }) => {
                                 </p>
                                 {isUnavailable && (
                                     <div className="mt-4 max-w-2xl rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3">
-                                        <p className="font-bold text-amber-300">Suất chiếu đã bị hủy hoặc phim đã ngừng phát hành.</p>
+                                        <p className="font-bold text-amber-300">Phim và lịch chiếu không còn trên hệ thống.</p>
                                         <p className="mt-1 text-sm leading-relaxed text-amber-100/80">
                                             Vé của bạn vẫn được lưu trong lịch sử. Yêu cầu hoàn tiền sẽ được xử lý theo chính sách của rạp; vui lòng liên hệ bộ phận hỗ trợ nếu chưa nhận được phản hồi.
                                         </p>
@@ -217,6 +221,10 @@ const ProfilePage = () => {
     const bookingGroups = useMemo(() => groupBookingsByMovie(bookingHistory), [bookingHistory])
     const currentMovieNames = useMemo(
         () => new Set(currentMovies.map((movie) => normalizeMovieName(movie.tenPhim))),
+        [currentMovies]
+    )
+    const currentMovieIds = useMemo(
+        () => new Set(currentMovies.map((movie) => movie.maPhim?.toString()).filter(Boolean)),
         [currentMovies]
     )
 
@@ -295,13 +303,20 @@ const ProfilePage = () => {
                     )}
 
                     <div className="space-y-5">
-                        {bookingGroups.map((group) => (
-                            <MovieBookingGroup
-                                key={group.tenPhim}
-                                group={group}
-                                isUnavailable={hasLoadedMovies && !currentMovieNames.has(normalizeMovieName(group.tenPhim))}
-                            />
-                        ))}
+                        {bookingGroups.map((group) => {
+                            const movieId = group.bookings[0]?.maPhim?.toString()
+                            const isCurrentMovie = movieId
+                                ? currentMovieIds.has(movieId)
+                                : currentMovieNames.has(normalizeMovieName(group.tenPhim))
+
+                            return (
+                                <MovieBookingGroup
+                                    key={movieId || group.tenPhim}
+                                    group={group}
+                                    isUnavailable={hasLoadedMovies && !isCurrentMovie}
+                                />
+                            )
+                        })}
                     </div>
                 </section>
             </div>

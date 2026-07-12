@@ -139,14 +139,14 @@ const FilmPage = () => {
   const searchKeyword = debouncedSearchTerm.trim()
   const isSearchMode = searchKeyword !== ''
   const paginatedMovies = useMovieListPhanTrang(currentPage, PAGE_SIZE)
-  const searchMovies = useMovieList('GP01', '', isSearchMode)
+  const allMovies = useMovieList('GP01')
   const addMovie = useAddMovie()
   const updateMovie = useUpdateMovie()
   const deleteMovie = useDeleteMovie()
   const isSubmitting = addMovie.isPending || updateMovie.isPending
   const searchItems = useMemo(() => {
     const keyword = normalizeText(searchKeyword)
-    const movieList = searchMovies.data || []
+    const movieList = allMovies.data || []
 
     if (!keyword) {
       return movieList
@@ -157,7 +157,7 @@ const FilmPage = () => {
       normalizeText(movie.biDanh).includes(keyword) ||
       movie.maPhim?.toString().includes(keyword)
     ))
-  }, [searchKeyword, searchMovies.data])
+  }, [searchKeyword, allMovies.data])
   const movies = useMemo(() => {
     if (!isSearchMode) {
       return paginatedMovies.data?.items || []
@@ -168,9 +168,9 @@ const FilmPage = () => {
   }, [currentPage, isSearchMode, paginatedMovies.data?.items, searchItems])
   const totalCount = isSearchMode ? searchItems.length : paginatedMovies.data?.totalCount || 0
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
-  const isLoading = isSearchMode ? searchMovies.isLoading : paginatedMovies.isLoading
-  const isError = isSearchMode ? searchMovies.isError : paginatedMovies.isError
-  const error = isSearchMode ? searchMovies.error : paginatedMovies.error
+  const isLoading = isSearchMode ? allMovies.isLoading : paginatedMovies.isLoading
+  const isError = isSearchMode ? allMovies.isError : paginatedMovies.isError
+  const error = isSearchMode ? allMovies.error : paginatedMovies.error
   const isSearching = searchTerm !== debouncedSearchTerm
 
   useEffect(() => {
@@ -191,6 +191,19 @@ const FilmPage = () => {
       }
 
       try {
+        const normalizedMovieName = normalizeText(values.tenPhim.trim())
+        const duplicatedMovie = (allMovies.data || []).find((movie) => (
+          movie.maPhim !== editingMovie?.maPhim &&
+          normalizeText(movie.tenPhim?.trim()) === normalizedMovieName
+        ))
+
+        if (duplicatedMovie) {
+          const message = `Tên phim đã được sử dụng bởi phim mã ${duplicatedMovie.maPhim}`
+          setFieldError('tenPhim', message)
+          notify({ type: 'error', title: 'Tên phim đã tồn tại', message })
+          return
+        }
+
         const formData = buildMovieFormData(values, !!editingMovie)
 
         if (editingMovie) {
